@@ -18,7 +18,7 @@ N = 2000
 time_sample_lenght = 200
 
 # Rango de tamaños de compartimientos en μm
-l0 = 0.005
+l0 = 0.01
 lf = 15
 
 # Tiempo final de simulación en s
@@ -32,7 +32,7 @@ t = range(0, tf, length = time_sample_lenght)
 
 # Rango de tamaños medios de correlación en μm
 lcms = 0.5:0.01:6
-σs = 0.01:0.05:1
+σs = 0.01:0.01:1
 
 #------------------------------------------------------------------------------------------
 
@@ -52,7 +52,8 @@ function GetProbd(path_read)
     return dataProbd
 end
 
-path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Little_Data\\Little_Data_CSV"
+#path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Little_Data\\Little_Data_CSV"
+path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\DatosCSV"
 
 dataSignals = GetSignals(path_read)
 dataProbd = GetProbd(path_read)
