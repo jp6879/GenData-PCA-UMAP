@@ -15,7 +15,7 @@ using StatsPlots
 
 # Lo que dejamos constante es el número de compartimientos, el rango de tamaños de correlación lc, el tiempo de simulación final y el muestreo de timepos
 N = 2000
-time_sample_lenght = 200
+time_sample_lenght = 100
 
 # Rango de tamaños de compartimientos en μm
 l0 = 0.01
@@ -53,12 +53,10 @@ function GetProbd(path_read)
 end
 
 #path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Little_Data\\Little_Data_CSV"
-path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\DatosCSV"
+path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\DatosCSV"
 
 dataSignals = GetSignals(path_read)
 dataProbd = GetProbd(path_read)
-
-# Save this matrix data in CSV files
 
 #------------------------------------------------------------------------------------------
 
@@ -101,49 +99,79 @@ end
 
 #------------------------------------------------------------------------------------------
 
-reduced_data_Signals = PCA_Data(dataSignals)[1]
-reduced_data_Probd = PCA_Data(dataProbd)[1]
+reduced_data_Signals, pca_model_signals = PCA_Data(dataSignals)
+reduced_data_Probd, pca_model_probd = PCA_Data(dataProbd)
+
+#------------------------------------------------------------------------------------------
+
+# Quiero ver hasta que componente hay una varianza acumulada del 98% en las distribuciones de probabilidad
+pcs_vars_s = principalvars(pca_model_signals)
+pcs_vars_pd = principalvars(pca_model_probd)
+
+limdim_S = 0
+limdim_P = 0
+for i in 1:length(pcs_vars_s)
+    if sum(pcs_vars_s[1:i]) / sum(pcs_vars_s) * 100 > 98
+        println("La varianza acumulada de las señales es del ", sum(pcs_vars_s[1:i]) / sum(pcs_vars_s) * 100, "% con ", i, " componentes principales")
+        limdim_S = i
+        break
+    end
+end
+
+for i in 1:length(pcs_vars_pd)
+    if sum(pcs_vars_pd[1:i]) / sum(pcs_vars_pd) * 100 > 98
+        println("La varianza acumulada de las distribuciones de probabilidad es del ", sum(pcs_vars_pd[1:i]) / sum(pcs_vars_pd) * 100, "% con ", i, " componentes principales")
+        limdim_P = i
+        break
+    end
+end
+
+df_PCA_Probd = DataFrame(reduced_data_Probd, :auto)
+df_PCA_Signals = DataFrame(reduced_data_Signals, :auto)
+
+df_PCA_Signals = df_PCA_Signals[1:limdim_S,:]
+df_PCA_Probd = df_PCA_Probd[1:limdim_P,:]
 
 #------------------------------------------------------------------------------------------
 
 # Identificación de los datos reducidos con señales y distribuciones de probabilidad originales
 
-dim1 = dimlcm = length(lcms)
-dim2 = dimσ = length(σs)
+# dim1 = dimlcm = length(lcms)
+# dim2 = dimσ = length(σs)
 
-column_lcm = zeros(dim1*dim2)
-column_σs = zeros(dim1*dim2)
-aux_lcm = collect(lcms)
-aux_σs = collect(σs)
+# column_lcm = zeros(dim1*dim2)
+# column_σs = zeros(dim1*dim2)
+# aux_lcm = collect(lcms)
+# aux_σs = collect(σs)
 
-for i in 1:dim1
-    for j in 1:dim2
-        column_lcm[(i - 1)*dim2 + j] = aux_lcm[i]
-        column_σs[(i - 1)*dim2 + j] = aux_σs[j]
-    end
-end
+# for i in 1:dim1
+#     for j in 1:dim2
+#         column_lcm[(i - 1)*dim2 + j] = aux_lcm[i]
+#         column_σs[(i - 1)*dim2 + j] = aux_σs[j]
+#     end
+# end
 
 #------------------------------------------------------------------------------------------
 
 # Guardamos la identificacion y los datos transformados en un DataFrame para graficos, se podria tambien guardarlos en CSV
 
-df_PCA_Signals = DataFrame(
-		pc1 = reduced_data_Signals[1, :],
-	    pc2 = reduced_data_Signals[2, :],
-	    σs = column_σs,
-	    lcm = column_lcm,
-	)
+# df_PCA_Signals = DataFrame(
+# 		pc1 = reduced_data_Signals[1, :],
+# 	    pc2 = reduced_data_Signals[2, :],
+# 	    σs = column_σs,
+# 	    lcm = column_lcm,
+# 	)
 
-df_PCA_Probd = DataFrame(
-        pc1 = reduced_data_Probd[1, :],
-        pc2 = reduced_data_Probd[2, :],
-        σs = column_σs,
-        lcm = column_lcm,
-    )
+# df_PCA_Probd = DataFrame(
+#         pc1 = reduced_data_Probd[1, :],
+#         pc2 = reduced_data_Probd[2, :],
+#         σs = column_σs,
+#         lcm = column_lcm,
+#     )
 
 # Guardamos estos datos en CSV
 
-path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Little_Data\\Little_Data_CSV"
+path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA"
 
 CSV.write(path_save * "\\df_PCA_Signals.csv", df_PCA_Signals)
 CSV.write(path_save * "\\df_PCA_Probd.csv", df_PCA_Probd)
