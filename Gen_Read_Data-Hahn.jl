@@ -81,7 +81,7 @@ end
 # lcms vector de tamaños medios de compartimientos
 # σs vector de desviaciones estándar
 
-function GenCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs)
+function GenCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs, path)
 
     function fill_missing(value, column, max_lenght)
         if length(column) < max_lenght
@@ -103,7 +103,7 @@ function GenCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs)
             P_l = fill_missing(0, P_l, max_lenght)
 
             df = DataFrame(t = t, l = l, S = S, P_l = P_l)
-            CSV.write("5-Maestría/TrackVersionsProgramsGit/1-GeneracionDeDatos/DatosCSV/$(lcm)_$(σ)l_2k.csv", df)
+            CSV.write(path * "/$(lcm)_$(σ)l_$N.csv", df)
         end
     end
 end
@@ -113,7 +113,7 @@ end
 # Lectura de los datos que se generaron
 # mismos parámetros que GenCSVData
 
-function ReadCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs)
+function ReadCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs, path)
     t = range(0, tf, length = time_sample_lenght)
     lc = range(l0, lf, length = N)
     length_t = length(t)
@@ -129,7 +129,7 @@ function ReadCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs)
         # xlims!(pl, (0,tf))
         # xlims!(pl2, (0,lf))
         for σ in σs
-            df = CSV.read("5-Maestría/TrackVersionsProgramsGit/1-GeneracionDeDatos/DatosCSV/$(lcm)_$(σ)l_2k.csv", DataFrame)
+            df = CSV.read(path * "/$(lcm)_$(σ)l_$N.csv", DataFrame)
             # plot!(pl,df.t[1:length_t], df.S[1:length_t], label = "lcm = $(lcm), σ = $(σ)", legend = false)
             # plot!(pl2,df.l, df.P_l, label = "lcm = $(lcm), σ = $(σ)", legend = false)
 

@@ -1,4 +1,4 @@
-include("Gen_Read_Data-Hahn.jl")
+include("C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Gen_Read_Data-Hahn.jl")
 using CSV
 using DataFrames
 
@@ -15,7 +15,7 @@ N = 2000
 time_sample_lenght = 200
 
 # Rango de tamaños de compartimientos en μm
-l0 = 0.01
+l0 = 0.005
 lf = 15
 
 # Tiempo final de simulación en s
@@ -31,11 +31,15 @@ t = range(0, tf, length = time_sample_lenght)
 lcms = 0.5:0.01:6
 σs = 0.01:0.05:1
 
+length(lcms)
+
+length(lcms) * length(σs)
+
 #------------------------------------------------------------------------------------------
 # Generación de datos en CSV para cada combinación de parámetros en el path especificado, este va a ser el mismo que use para leer los datos
 path = "C:/Users/Propietario/Desktop/ib/5-Maestría/GenData-PCA-UMAP/Little_Data/Little_Data_CSV"
 
-Gen_Read_Data.GenerarDatosCSV(N, time_sample_lenght, l0, lf, tf, lcms, σs, path)
+GenCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs, path) |> gpu
 
 #------------------------------------------------------------------------------------------
 
@@ -43,13 +47,14 @@ Gen_Read_Data.GenerarDatosCSV(N, time_sample_lenght, l0, lf, tf, lcms, σs, path
 
 # Lectura de los datos que se generaron, devuelve un array de 3 dimensiones con los datos de las señales y las distribuciones especificado cada lcm y σ
 
-Probabilitys, Signals = ReadCSVData(N, time_sample_lenght, l0, lf, tf)
+Probabilitys, Signals = ReadCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs, path)
 
 # Para esto tenemos que hacer un reshape de los datos para que queden en un arreglo de 2 dimensiones
 
-lenght_σs =  length(σs)
-lenght_lcms = length(lcms)
-max_lenght = maximum(length.([t, lc]))
+length_σs =  length(σs)
+length_lcms = length(lcms)
+length_t = length(t)
+max_length = maximum(length.([t, lc]))
 
 
 function reshape_data(old_matrix, old_shape, new_shape)
@@ -73,14 +78,14 @@ function reshape_data(old_matrix, old_shape, new_shape)
 end
 
 # Nuevo tamaño de los datos
-new_size = (lenght_σs * lenght_lcms, max_lenght)
+new_size = (length_σs * length_lcms, max_length)
 
 # Ahora si tenemos los datos de entrada y salida es decir las señales y las distribuciones de probabilidad
 dataSignals = reshape_data(Signals, size(Signals), new_size)
 dataProbd = reshape_data(Probabilitys, size(Probabilitys), new_size)
 
 # En un momento para tener un DataFrame llenamos los datos de la señal con 0s los sacamos de cada columna.
-dataIN = dataIN[1:length_t, :]
+dataSignals = dataSignals[1:length_t, :]
 
 # Ahora podemos guardar estos datos para hacer un pre procesamiento antes de utilizarlos como entrada de una red neuronal
 
@@ -91,4 +96,5 @@ df_dataSignals = DataFrame(dataSignals, :auto)
 df_dataProbd = DataFrame(dataProbd, :auto)
 
 CSV.write(path_save * "\\dataSignals.csv", df_dataSignals)
-CSV.write(path_save * "\\dataOUT.csv", df_dataProbd)
+CSV.write(path_save * "\\dataProbd.csv", df_dataProbd)
+
