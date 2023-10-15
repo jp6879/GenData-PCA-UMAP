@@ -57,6 +57,8 @@ path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\
 dataSignals = GetSignals(path_read)
 dataProbd = GetProbd(path_read)
 
+# Save this matrix data in CSV files
+
 #------------------------------------------------------------------------------------------
 
 # Función que centra los datos de las columnas de una matriz
