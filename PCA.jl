@@ -60,15 +60,6 @@ dataProbd = GetProbd(path_read)
 
 #------------------------------------------------------------------------------------------
 
-# Función que centra los datos de las columnas de una matriz
-
-function CenterData(Non_C_Matrix)
-	data_matrix = Non_C_Matrix
-	col_means = mean(data_matrix, dims = 1)
-	centered_data = data_matrix .- col_means
-	return centered_data
-end
-
 # PCA para ciertos datos
 
 function PCA_Data(dataIN)
@@ -76,7 +67,7 @@ function PCA_Data(dataIN)
     dataIN_C = CenterData(dataIN)
 
     # Esto ya hace PCA sobre la matriz dada donde cada observación es una columna de la matriz
-    pca_model = fit(PCA, dataIN_C)
+    pca_model = fit(PCA, dataIN_C; maxoutdim = 2)
 
     # Esta instancia de PCA tiene distintas funciones como las siguientes
 
@@ -126,51 +117,100 @@ for i in 1:length(pcs_vars_pd)
     end
 end
 
-df_PCA_Probd = DataFrame(reduced_data_Probd, :auto)
 df_PCA_Signals = DataFrame(reduced_data_Signals, :auto)
+df_PCA_Probd = DataFrame(reduced_data_Probd, :auto)
 
 df_PCA_Signals = df_PCA_Signals[1:limdim_S,:]
 df_PCA_Probd = df_PCA_Probd[1:limdim_P,:]
 
 #------------------------------------------------------------------------------------------
+# Datos reconstruidos
+
+#reconstruct(M::PCA, y::AbstractVecOrMat{<:Real})
+
+re_signals = reconstruct(pca_model_signals, reduced_data_Signals)
+re_probd = reconstruct(pca_model_probd, reduced_data_Probd)
+
+Plots.scatter(t,re_signals[:,0*100 + 1], label = "lcm = $(lcms[1]), σ = $(σs[1])", markersize = 2)
+Plots.scatter!(t,re_signals[:,0*100 + 20], label = "lcm = $(lcms[1]), σ = $(σs[20])", markersize = 2)
+Plots.scatter!(t,re_signals[:,0*100 + 100], label = "lcm = $(lcms[1]), σ = $(σs[100])", markersize = 2)
+Plots.scatter!(t,re_signals[:,(20 - 1)*100 + 1], label = "lcm = $(lcms[20]), σ = $(σs[1])", markersize = 2)
+Plots.scatter!(t,re_signals[:,(20 - 1)*100 + 100], label = "lcm = $(lcms[20]), σ = $(σs[100])", markersize = 2)
+
+Plots.scatter(lc,re_probd[:,(50-1)*100 + 20], label = "lcm = $(lcms[50]), σ = $(σs[20])", markersize = 0.5)
+Plots.scatter!(lc,re_probd[:,(60-1)*100 + 100], label = "lcm = $(lcms[50]), σ = $(σs[100])", markersize = 0.5)
+Plots.scatter!(lc,re_probd[:,(551 - 1)*100 + 1], label = "lcm = $(lcms[551]), σ = $(σs[1])", markersize = 0.5)
+Plots.scatter!(lc,re_probd[:,(551 - 1)*100 + 100], label = "lcm = $(lcms[551]), σ = $(σs[100])", markersize = 0.001)
+
+
+
+#------------------------------------------------------------------------------------------
 
 # Identificación de los datos reducidos con señales y distribuciones de probabilidad originales
 
-# dim1 = dimlcm = length(lcms)
-# dim2 = dimσ = length(σs)
+dim1 = dimlcm = length(lcms)
+dim2 = dimσ = length(σs)
 
-# column_lcm = zeros(dim1*dim2)
-# column_σs = zeros(dim1*dim2)
-# aux_lcm = collect(lcms)
-# aux_σs = collect(σs)
+column_lcm = zeros(dim1*dim2)
+column_σs = zeros(dim1*dim2)
+aux_lcm = collect(lcms)
+aux_σs = collect(σs)
 
-# for i in 1:dim1
-#     for j in 1:dim2
-#         column_lcm[(i - 1)*dim2 + j] = aux_lcm[i]
-#         column_σs[(i - 1)*dim2 + j] = aux_σs[j]
-#     end
-# end
+for i in 1:dim1
+    for j in 1:dim2
+        column_lcm[(i - 1)*dim2 + j] = aux_lcm[i]
+        column_σs[(i - 1)*dim2 + j] = aux_σs[j]
+    end
+end
 
 #------------------------------------------------------------------------------------------
 
 # Guardamos la identificacion y los datos transformados en un DataFrame para graficos, se podria tambien guardarlos en CSV
 
-# df_PCA_Signals = DataFrame(
-# 		pc1 = reduced_data_Signals[1, :],
-# 	    pc2 = reduced_data_Signals[2, :],
-# 	    σs = column_σs,
-# 	    lcm = column_lcm,
-# 	)
+df_PCA_Signals = DataFrame(
+		pc1 = reduced_data_Signals[1, :],
+	    pc2 = reduced_data_Signals[2, :],
+	    σs = column_σs,
+	    lcm = column_lcm,
+	)
 
-# df_PCA_Probd = DataFrame(
-#         pc1 = reduced_data_Probd[1, :],
-#         pc2 = reduced_data_Probd[2, :],
-#         σs = column_σs,
-#         lcm = column_lcm,
-#     )
+df_PCA_Probd = DataFrame(
+        pc1 = reduced_data_Probd[1, :],
+        pc2 = -reduced_data_Probd[2, :],
+        σs = column_σs,
+        lcm = column_lcm,
+    )
+
+
+plot_lcms_S = @df df_PCA_Signals StatsPlots.scatter(
+    :pc1,
+    :pc2,
+    group = :lcm,
+    marker = (0.4,5),
+    xaxis = (title = "PC1"),
+    yaxis = (title = "PC2"),
+    xlabel = "PC1",
+    ylabel = "PC2",
+    labels = false,  # Use the modified labels
+    title = "PCA para S(t)",
+)
+
+plot_lcms_PD = @df df_PCA_Probd StatsPlots.scatter(
+    :pc1,
+    :pc2,
+    group = :lcm,
+    marker = (0.4,5),
+    xaxis = (title = "PC1"),
+    yaxis = (title = "PC2"),
+    xlabel = "PC1",
+    ylabel = "PC2",
+    labels = false,  # Use the modified labels
+    title = "PCA para P(lc)"
+)
 
 # Guardamos estos datos en CSV
 
+#path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Little_Data\\Little_Data_CSV"
 path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA"
 
 CSV.write(path_save * "\\df_PCA_Signals.csv", df_PCA_Signals)

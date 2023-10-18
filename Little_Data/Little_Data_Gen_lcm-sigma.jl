@@ -10,12 +10,12 @@ using DataFrames
 #------------------------------------------------------------------------------------------
 # Parámetros fijos
 
-# Lo que dejamos constante es el número de compartimientos, el rango de tamaños de correlación lc, el tiempo de simulación final y el muestreo de timepos
+# Lo que dejamos constante es el número de compartimientos, el rango de tamaños l, el tiempo de simulación final y el muestreo de timepos
 N = 2000
-time_sample_lenght = 200
+time_sample_lenght = 100
 
 # Rango de tamaños de compartimientos en μm
-l0 = 0.005
+l0 = 0.05
 lf = 15
 
 # Tiempo final de simulación en s
@@ -29,7 +29,7 @@ t = range(0, tf, length = time_sample_lenght)
 
 # Rango de tamaños medios de correlación en μm
 lcms = 0.5:0.01:6
-σs = 0.01:0.05:1
+σs = 0.01:0.01:1
 
 length(lcms)
 
@@ -37,9 +37,10 @@ length(lcms) * length(σs)
 
 #------------------------------------------------------------------------------------------
 # Generación de datos en CSV para cada combinación de parámetros en el path especificado, este va a ser el mismo que use para leer los datos
-path = "C:/Users/Propietario/Desktop/ib/5-Maestría/GenData-PCA-UMAP/Little_Data/Little_Data_CSV"
+path = "C:/Users/Propietario/Desktop/ib/5-Maestría/GenData-PCA-UMAP/Datos/DatosCSV"
+#path = "C:/Users/Propietario/Desktop/ib/5-Maestría/GenData-PCA-UMAP/Little_Data/Little_Data_CSV"
 
-GenCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs, path)
+#GenCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs, path)
 
 #------------------------------------------------------------------------------------------
 
@@ -87,10 +88,25 @@ dataProbd = reshape_data(Probabilitys, size(Probabilitys), new_size)
 # En un momento para tener un DataFrame llenamos los datos de la señal con 0s los sacamos de cada columna.
 dataSignals = dataSignals[1:length_t, :]
 
+# Función que centra los datos de las columnas de una matriz
+
+function CenterData(Non_C_Matrix)
+	data_matrix = Non_C_Matrix
+	col_means = mean(data_matrix, dims = 1)
+	centered_data = data_matrix .- col_means
+	return centered_data
+end
+
+# Aprovechamos y centramos los datos
+
+dataSignals_C = CenterData(dataSignals)
+dataProbd_C = CenterData(dataProbd)
+
 # Ahora podemos guardar estos datos para hacer un pre procesamiento antes de utilizarlos como entrada de una red neuronal
 
 # Elegir el path donde se van a guardar los datos
-path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Little_Data\\Little_Data_CSV"
+path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA"
+#path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Little_Data\\Little_Data_CSV"
 
 df_dataSignals = DataFrame(dataSignals, :auto)
 df_dataProbd = DataFrame(dataProbd, :auto)
