@@ -43,18 +43,24 @@ lcms = 0.5:0.01:6
 # Leemos los datos a los que les realizamos PCA
 
 path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA"
-path_read_umap = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_UMAP"
+
 df_datasignals = CSV.read(path_read * "\\df_PCA_Signals.csv", DataFrame)
 #datasignals = Matrix(df_datasignals)
 
-df_dataprobd = CSV.read(path_read_umap * "\\df_UMAP_Probd.csv", DataFrame)
+df_dataprobd = CSV.read(path_read * "\\df_PCA_Probd_60var.csv", DataFrame)
 #dataprobd = Matrix(df_dataprobd)
+
+# df_dataprobd
+# df_datasignals
 
 # Algo que podemos hacer es invertir las direcciones de una de las componentes principales para 
 # tener así datos mas parecidos a los de las entradas
+# Convert the second row (row 2) to an array and multiply by -1
+# row_array = Array(df_dataprobd[18, :])
+# row_array .*= -1
 
-# df_dataprobd[:,2] = -df_dataprobd[:,2]
-
+# # Update the DataFrame with the modified row
+# df_dataprobd[18, :] .= row_array
 #------------------------------------------------------------------------------------------
 
 num_datos = Int(size(df_datasignals, 1)) # Numero de datos
@@ -62,16 +68,54 @@ num_datos = Int(size(df_datasignals, 1)) # Numero de datos
 datasignals_valid = Float32.(Matrix(df_datasignals[1:10:num_datos,1:2])')
 datasignals = Float32.(Matrix(df_datasignals[setdiff(1:num_datos, 1:10:num_datos),1:2])')
 
-dataprobd_valid = Float32.(Matrix(df_dataprobd[1:10:num_datos,1:2])')
-dataprobd = Float32.(Matrix(df_dataprobd[setdiff(1:num_datos, 1:10:num_datos),1:2])')
+dataprobd_valid = Float32.(Matrix(df_dataprobd[:,1:10:num_datos]))
+dataprobd = Float32.(Matrix(df_dataprobd[:,setdiff(1:num_datos, 1:10:num_datos)]))
+
+# Para 2 pcs
+# dataprobd_valid = Float32.(Matrix(df_dataprobd[1:10:num_datos,1:2])')
+# dataprobd = Float32.(Matrix(df_dataprobd[setdiff(1:num_datos, 1:10:num_datos),1:2])')
 
 σ_valid = df_datasignals[1:10:num_datos,3]
 lcm_valid = df_datasignals[1:10:num_datos,4]
 σ_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),3]
 lcm_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),4]
 
-# Normalización Z de datos
 
+function MaxMin(data)
+    # Calculate the minimum and maximum values for each dimension
+    min_vals = minimum(data, dims=1)
+    max_vals = maximum(data, dims=1)
+
+    # Scale the data to the range of -1 to 1
+    scaled_data = -1 .+ 2 * (data .- min_vals) ./ (max_vals .- min_vals)
+
+    return scaled_data
+
+end
+
+function Standarize(data)
+    # Calculate the mean and standard deviation for each dimension
+    mean_vals = mean(data, dims=1)
+    std_devs = std(data, dims=1)
+
+    # Standardize the data
+    standardized_data = (data .- mean_vals) ./ std_devs
+
+    return standardized_data
+end
+
+
+# scaled_datasignals = MaxMin(datasignals)
+# scaled_datasignals_valid = MaxMin(datasignals_valid)
+
+# scaled_dataprobd = MaxMin(dataprobd)
+# scaled_dataprobd_valid = MaxMin(dataprobd_valid)
+
+standarized_datasignals = Standarize(datasignals)
+standarized_datasignals_valid = Standarize(datasignals_valid)
+
+standarized_dataprobd = Standarize(dataprobd)
+standarized_dataprobd_valid = Standarize(dataprobd_valid)
 
 #------------------------------------------------------------------------------------------
 
@@ -87,32 +131,32 @@ column_lcm = df_datasignals[:,4]
 
 # Graficamos los datos de entrada
 
-plot_lcms_S = @df df_datasignals StatsPlots.scatter(
-:pc1,
-:pc2,
-group = :lcm,
-marker = (0.4,5),
-xaxis = (title = "PC1"),
-yaxis = (title = "PC2"),
-xlabel = "PC1",
-ylabel = "PC2",
-labels = false,
-title = "PCA para S(t)",
-)
+# plot_lcms_S = @df df_datasignals StatsPlots.scatter(
+# :pc1,
+# :pc2,
+# group = :lcm,
+# marker = (0.4,5),
+# xaxis = (title = "PC1"),
+# yaxis = (title = "PC2"),
+# xlabel = "PC1",
+# ylabel = "PC2",
+# labels = false,
+# title = "PCA para S(t)",
+# )
 
 # Graficamos los datos de salida, 
-plot_lcms_P = @df df_dataprobd StatsPlots.scatter(
-    :proyX,
-    :proyY,
-    group = :lcm,
-    marker = (0.5,5),
-    xaxis = (title = "proyX"),
-    yaxis = (title = "proyY"),
-    xlabel = "proyX",
-    ylabel = "proyY",
-    labels = false,
-    title = "UMAP para P(lc)",
-)
+# plot_lcms_P = @df df_dataprobd StatsPlots.scatter(
+#     :x1,
+#     :x2,
+#     group = :lcm,
+#     marker = (0.5,5),
+#     xaxis = (title = "PC1"),
+#     yaxis = (title = "PC2"),
+#     xlabel = "PC1",
+#     ylabel = "PC2",
+#     labels = false,
+#     title = "PCA para P(lc)",
+# )
 
 #------------------------------------------------------------------------------------------
 
@@ -121,32 +165,32 @@ plot_lcms_P = @df df_dataprobd StatsPlots.scatter(
 # Definimos la red neuronal
 
 model = Chain(
-    Dense(2, 10, relu),
-    Dense(10, 25, relu),
-    Dense(25, 50, tanh_fast),
-    Dense(50, 50, tanh_fast),
-    Dense(50, 2)
+    Dense(2, 20, relu),
+    Dense(20, 40, relu),
+    Dense(40, 11),
 )
 
 # Definimos la función de pérdida
-
+pen_l2(x::AbstractArray) = Float32.(sum(abs2, x) / 2)
+pen_l1(x::AbstractArray) = Float32.(sum(abs, x) / 2)
 function loss(x,y)
-    return Flux.mse(model(x), y)
+    penalty = sum(pen_l1, Flux.params(model))
+    return Flux.mse(model(x), y) + 5e-9 * penalty
 end
 
 #loss(x, y) = Flux.mse(model(x), y)
 
 # Definimos el optimizador
 
-opt = ADAM(1e-4)
+opt = ADAM(1e-6)
 
 # Definimos el número de épocas
 
-epochs = 1000
+epochs = 100
 
 # Definimos el batch size
 
-batch_size = 100
+batch_size = 50
 
 # Usamos dataloader para cargar los datos
 
@@ -186,8 +230,8 @@ end;
 # Entrenamos la red neuronal
 for epoch in 1:epochs
     Flux.train!(loss, Flux.params(model, opt), data, opt, cb = cb)
-    if epoch == 200   # then change to use η = 0.01 for the rest.
-        opt = ADAM(1e-6)
+    if epoch == 50
+        opt = ADAM(1e-8)
     end
 end
 
@@ -195,10 +239,9 @@ end
 
 pl_loss = plot(1:epochs, losses, xlabel = "Epocas", ylabel = "Loss", label = "Loss datos de entrenamiento", logy = true)
 plot!(1:epochs, losses_valid, xlabel = "Epocas", ylabel = "Loss", label = "Loss datos de validación", logy = true)
-yaxis!(pl_loss, (0.0001, 0.1), log = true)
-xlims!(5, epochs)
+yaxis!(pl_loss, (0.0001, 0.5), log = true)
 
-savefig(pl_loss, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\FNN\\Plots\\Loss.png")
+savefig(pl_loss, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\FNN\\Plots\\Loss_60var.png")
 
 #------------------------------------------------------------------------------------------
 
@@ -206,6 +249,24 @@ savefig(pl_loss, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-
 
 predicteddp = model(datasignals)
 predicteddp_valid = model(datasignals_valid)
+
+# Veamos la MAE de los datos predichos por la red
+
+function MAE(predicted, real)
+    return sum(abs.(predicted .- real)) / length(predicted)
+end
+
+# Usemos el R2 score
+
+function R2_score(predicted, real)
+    return 1 - sum((predicted .- real).^2) / sum((real .- mean(real)).^2)
+end
+
+MAE_train = MAE(predicteddp, dataprobd)
+MAE_valid = MAE(predicteddp_valid, dataprobd_valid)
+
+R2_train = R2_score(predicteddp, dataprobd)
+R2_valid = R2_score(predicteddp_valid, dataprobd_valid)
 
 df_predict = DataFrame(
     pc1 = predicteddp[1, :],
@@ -234,7 +295,7 @@ plot_lcms_P_pred = @df df_predict StatsPlots.scatter(
     title = "Predicción datos entrenamiento PCA para P(lc)",
 )
 
-savefig(plot_lcms_P_pred, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\FNN\\Plots\\Predict.png")
+savefig(plot_lcms_P_pred, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\FNN\\Plots\\Predict60var.png")
 
 
 plot_lcms_P_pred_valid = @df df_predict_valid StatsPlots.scatter(
@@ -251,7 +312,7 @@ plot_lcms_P_pred_valid = @df df_predict_valid StatsPlots.scatter(
 )
 
 
-savefig(plot_lcms_P_pred_valid, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\FNN\\Plots\\Predict-Valid.png")
+savefig(plot_lcms_P_pred_valid, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\FNN\\Plots\\Predict-Valid60var.png")
 
 # @df df_PCA_Probd StatsPlots.scatter!(
 #     :pc1,

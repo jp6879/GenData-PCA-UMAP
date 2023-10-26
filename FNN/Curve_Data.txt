@@ -1,0 +1,25 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Create a grid of points in 2D space
+x = np.linspace(-2, 2, 100)  # X-coordinates
+y = np.linspace(-2, 2, 100)  # Y-coordinates
+xx, yy = np.meshgrid(x, y)
+
+# Apply a nonlinear transformation to create curved data
+# For example, let's create a circular pattern
+r = np.sqrt(xx**2 + yy**2)
+curved_data = np.sin(2 * np.pi * r)
+
+# Plot the original grid and the curved data
+plt.figure(figsize=(10, 5))
+plt.subplot(1, 2, 1)
+plt.title("Original Grid")
+plt.scatter(xx, yy, c='b', s=1)
+
+plt.subplot(1, 2, 2)
+plt.title("Curved Data")
+plt.imshow(curved_data, extent=(-2, 2, -2, 2), origin='lower', cmap='viridis')
+plt.colorbar()
+
+plt.show()

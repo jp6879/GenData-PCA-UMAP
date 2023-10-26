@@ -41,13 +41,12 @@ lcms = 0.5:0.01:6
 #------------------------------------------------------------------------------------------
 
 # Leemos los datos a los que les realizamos PCA
-
 path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA"
 path_read_umap = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_UMAP"
 df_datasignals = CSV.read(path_read * "\\df_PCA_Signals.csv", DataFrame)
 #datasignals = Matrix(df_datasignals)
 
-df_dataprobd = CSV.read(path_read_umap * "\\df_UMAP_Probd.csv", DataFrame)
+df_dataprobd = CSV.read(path_read_umap * "\\df_UMAP_Probd_mdist0_nn_50.csv", DataFrame)
 #dataprobd = Matrix(df_dataprobd)
 
 # Algo que podemos hacer es invertir las direcciones de una de las componentes principales para 
@@ -70,8 +69,35 @@ lcm_valid = df_datasignals[1:10:num_datos,4]
 σ_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),3]
 lcm_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),4]
 
-# Normalización Z de datos
+#------------------------------------------------------------------------------------------
 
+# Funciones de pre procesamiento para escalar los datos
+
+function MaxMin(data)
+    # Calculate the minimum and maximum values for each dimension
+    min_vals = minimum(data, dims=1)
+    max_vals = maximum(data, dims=1)
+
+    # Scale the data to the range of -1 to 1
+    scaled_data = -1 .+ 2 * (data .- min_vals) ./ (max_vals .- min_vals)
+
+    return scaled_data
+
+end
+
+function Standarize(data)
+    # Calculate the mean and standard deviation for each dimension
+    mean_vals = mean(data, dims=1)
+    std_devs = std(data, dims=1)
+
+    # Standardize the data
+    standardized_data = (data .- mean_vals) ./ std_devs
+
+    return standardized_data
+end
+
+# dataprobd_valid = MaxMin(dataprobd_valid)
+# dataprobd = MaxMin(dataprobd)
 
 #------------------------------------------------------------------------------------------
 
@@ -87,18 +113,38 @@ column_lcm = df_datasignals[:,4]
 
 # Graficamos los datos de entrada
 
-plot_lcms_S = @df df_datasignals StatsPlots.scatter(
-:pc1,
-:pc2,
-group = :lcm,
-marker = (0.4,5),
-xaxis = (title = "PC1"),
-yaxis = (title = "PC2"),
-xlabel = "PC1",
-ylabel = "PC2",
-labels = false,
-title = "PCA para S(t)",
+df_valid_P = DataFrame(
+    x = dataprobd_valid[1,:],
+    y = dataprobd_valid[2, :],
+    σ = σ_valid,
+    lcm = lcm_valid,
 )
+
+plot_valid_lcms_P = @df df_valid_P StatsPlots.scatter(
+    :x,
+    :y,
+    group = :lcm,
+    marker = (0.5,5),
+    xaxis = (title = "x"),
+    yaxis = (title = "y"),
+    xlabel = "x",
+    ylabel = "y",
+    labels = false,
+    title = "UMAP para P(lc)",
+)
+
+# plot_lcms_S = @df df_datasignals StatsPlots.scatter(
+# :pc1,
+# :pc2,
+# group = :lcm,
+# marker = (0.5,5),
+# xaxis = (title = "PC1"),
+# yaxis = (title = "PC2"),
+# xlabel = "PC1",
+# ylabel = "PC2",
+# labels = false,
+# title = "PCA para S(t)",
+# )
 
 # Graficamos los datos de salida, 
 plot_lcms_P = @df df_dataprobd StatsPlots.scatter(
@@ -121,11 +167,11 @@ plot_lcms_P = @df df_dataprobd StatsPlots.scatter(
 # Definimos la red neuronal
 
 model = Chain(
-    Dense(2, 10, relu),
-    Dense(10, 25, relu),
-    Dense(25, 50, tanh_fast),
-    Dense(50, 50, tanh_fast),
-    Dense(50, 2)
+    Dense(2, 25, relu),
+    Dense(25, 50, relu),
+    Dense(50, 25, leakyrelu),
+    Dense(25, 5, tanh_fast),
+    Dense(5, 2),
 )
 
 # Definimos la función de pérdida
@@ -138,7 +184,7 @@ end
 
 # Definimos el optimizador
 
-opt = ADAM(1e-4)
+opt = ADAM(1e-3)
 
 # Definimos el número de épocas
 
@@ -148,10 +194,24 @@ epochs = 1000
 
 batch_size = 100
 
+# Normalizamos los datos
+n_datasignals = Float32.(zeros(size(datasignals)))
+n_datasignals_valid = Float32.(zeros(size(datasignals_valid)))
+n_dataprobd = Float32.(zeros(size(dataprobd)))
+n_dataprobd_valid = Float32.(zeros(size(dataprobd_valid)))
+
+for i in 1:2
+    n_datasignals[i,:] = Float32.(MaxMin(datasignals[i,:]))
+    n_datasignals_valid[i,:] = Float32.(MaxMin(datasignals_valid[i,:]))
+    n_dataprobd[i,:] = Float32.(MaxMin(dataprobd[i,:]))
+    n_dataprobd_valid[i,:] = Float32.(MaxMin(dataprobd_valid[i,:]))
+end
+
+
 # Usamos dataloader para cargar los datos
 
-data = Flux.DataLoader((datasignals, dataprobd), batchsize = batch_size, shuffle = true)
-data_valid = Flux.DataLoader((datasignals_valid, dataprobd_valid), batchsize = batch_size, shuffle = true)
+data = Flux.DataLoader((n_datasignals, n_dataprobd), batchsize = batch_size, shuffle = true)
+data_valid = Flux.DataLoader((n_datasignals_valid, n_dataprobd_valid), batchsize = batch_size, shuffle = true)
 
 # Definimos el vector donde guardamos la pérdida
 
@@ -187,7 +247,7 @@ end;
 for epoch in 1:epochs
     Flux.train!(loss, Flux.params(model, opt), data, opt, cb = cb)
     if epoch == 200   # then change to use η = 0.01 for the rest.
-        opt = ADAM(1e-6)
+        opt = ADAM(1e-5)
     end
 end
 
@@ -195,7 +255,7 @@ end
 
 pl_loss = plot(1:epochs, losses, xlabel = "Epocas", ylabel = "Loss", label = "Loss datos de entrenamiento", logy = true)
 plot!(1:epochs, losses_valid, xlabel = "Epocas", ylabel = "Loss", label = "Loss datos de validación", logy = true)
-yaxis!(pl_loss, (0.0001, 0.1), log = true)
+yaxis!(pl_loss, (0.0001, 0.01), log = true)
 xlims!(5, epochs)
 
 savefig(pl_loss, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\FNN\\Plots\\Loss.png")

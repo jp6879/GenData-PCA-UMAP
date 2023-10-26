@@ -11,27 +11,27 @@ begin
 	using Flux: train!
 	using Plots
 	using Distributions
-	using CUDA
 	using ProgressMeter
 	using MultivariateStats
 	using DataFrames
 	using CSV
 	using StatsPlots
 	using LaTeXStrings
+    using PlutoUI
 end
 
 # ╔═╡ db586979-9fd9-4808-b7f1-c8781fdc541b
 md"# Red neuronal feedfoward para el mapeo entre señales y distribuciones de probabilidad
 
-Luego de haber realizado la reducción de dimensionalidad para los datos de señales y distribuciones de probabilidad con PCA, vamos a hacer un mapeo entre las dos utilizando una red neuronal con arquitectura feedfoward.
+Después de realizar la reducción de dimensionalidad para los datos de señales y las distribuciones de probabilidad mediante PCA, procederemos a realizar un mapeo entre ambas utilizando una red neuronal de arquitectura feedforward.
 
-El análisis de componentes principales para los datos de 55100 señales y distribuciones de probabilidad asociadas a una dada longitud de correlación media $l_{cm}$ y a un dado error $\sigma$ nos dio que en el caso de las señales el 98% de la varianza total se encontraba en solo 2 direcciones principales, mientras que para las distribuciones de probabilidad la varianza en las 2 direcciones principales es del 
+El análisis de componentes principales para los datos de 55100 señales y sus distribuciones de probabilidad asociadas a una longitud de correlación media dada, $l_cm$ y a un error dado $\sigma$, en el caso de las señales, el 98% de la varianza total se encuentra en solo 2 direcciones principales. Por otro lado, para las distribuciones de probabilidad, la varianza en las 2 direcciones principales es del 30%.
 
-Recordamos que reducimos utilizando PCA los datos de  Hay que recordar que en el caso de las señales el 98% de la varianza total se encuentra en 2 direcciones principales  mientras que para las distribuciones de probabilidad solo es del 30% por lo cual perdemos mucha información lo cual puede costar al momento de hacer una reconstrucción de los datos. 
+Es importante recordar que, al reducir los datos mediante PCA, perdemos una cantidad significativa de información en el caso de las distribuciones de probabilidad, donde solo se conserva aproximadamente el 30% de la varianza total relativa.
 
-Teniendo en cuenta esto se realizó una red neuronal con arquitectura feedfoward compuesta de una capa de entrada con 2 neuronas, 3 capas ocultas con 10, 25 y 10 neuronas respectivamente y una capa de salida con 2 neuronas.
+Teniendo en cuenta esta pérdida de información, se diseñó una red neuronal con arquitectura feedforward. Esta red consta de una capa de entrada con 2 neuronas, seguida de 4 capas ocultas con 10, 25, 50 y 50 neuronas respectivamente, y una capa de salida con 2 neuronas.
 
-De entrada se utilizaron los datos de las señales transformados en las 2 componentes principales, mientras que en la salida se utilizaron los datos de las distribuciones de probabilidad en las 2 componentes principales.
+Para la capa de entrada, se utilizaron los datos de las señales transformados en las 2 componentes principales, mientras que en la capa de salida, se utilizaron los datos de las distribuciones de probabilidad en las 2 componentes principales.
 "
 
 # ╔═╡ 8f4e4d25-365a-4e01-be12-35f6bc3e1259
@@ -58,33 +58,52 @@ begin
 	# Rango de tamaños medios de correlación en μm
 	lcms = 0.5:0.01:6
 	σs = 0.01:0.01:1
-end
+end;
+
+# ╔═╡ a1e9328d-3914-4cb9-b89c-04dc150bcab5
+md"Cargamos los datos que hicimos de PCA para las señales y las distribuciones de probabilidad, estos datos van a ser mapeados por la red neuronal. Además ustamos el 90% de los datos primero para entrenar y luego el 10% como datos de validación."
 
 # ╔═╡ fc760941-c36a-4039-bc27-8808db80682a
 begin
-	# Leemos los datos a los que les realizamos PCA
-	path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA"
-	
-	df_datasignals = CSV.read(path_read * "\\df_PCA_Signals.csv", DataFrame)
-	datasignals = Matrix(df_datasignals)
-	
-	df_dataprobd = CSV.read(path_read * "\\df_PCA_Probd.csv", DataFrame)
-	dataprobd = Matrix(df_dataprobd)
-	
-	# De los datos de distribuciones de probabilidad nos quedamos solo con las 2 primeras componentes principales aunque estemos perdiendo información
-	
-	datasignals = datasignals[:, 1:2]'
-	dataprobd = dataprobd[:, 1:2]'
+    # Leemos los datos a los que les realizamos PCA
 
-	# Identificación de los datos reducidos con señales y distribuciones de probabilidad originales
+    path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA"
 
-	dim1 = dimlcm = length(lcms)
-	dim2 = dimσ = length(σs)
-	
-	column_σs = df_datasignals[:,3]
-	column_lcm = df_datasignals[:,4]
-	
-end
+    df_datasignals = CSV.read(path_read * "\\df_PCA_Signals.csv", DataFrame)
+    #datasignals = Matrix(df_datasignals)
+
+    df_dataprobd = CSV.read(path_read * "\\df_PCA_Probd.csv", DataFrame)
+    #dataprobd = Matrix(df_dataprobd)
+
+    # Algo que podemos hacer es invertir las direcciones de una de las componentes principales para 
+    # tener así datos mas parecidos a los de las entradas
+
+    df_dataprobd[:,2] = -df_dataprobd[:,2]
+
+    num_datos = Int(size(df_datasignals, 1)) # Numero de datos
+
+    datasignals_valid = Float32.(Matrix(df_datasignals[1:10:num_datos,1:2])')
+    datasignals = Float32.(Matrix(df_datasignals[setdiff(1:num_datos, 1:10:num_datos),1:2])')
+
+    dataprobd_valid = Float32.(Matrix(df_dataprobd[1:10:num_datos,1:2])')
+    dataprobd = Float32.(Matrix(df_dataprobd[setdiff(1:num_datos, 1:10:num_datos),1:2])')
+
+    σ_valid = df_datasignals[1:10:num_datos,3]
+    lcm_valid = df_datasignals[1:10:num_datos,4]
+    σ_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),3]
+    lcm_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),4]
+
+    # Identificación de los datos reducidos con señales y distribuciones de probabilidad originales
+
+    dim1 = dimlcm = length(lcms)
+    dim2 = dimσ = length(σs)
+
+    column_σs = df_datasignals[:,3]
+    column_lcm = df_datasignals[:,4]
+end;
+
+# ╔═╡ 21930f83-65d5-4aaa-b4f1-a32508c54d5c
+md"Grafiquemos los datos de entrada y salida de la red, algo que hicimos fue cambiar la dirección de una de las componentes principales para los datos de distribuciones de probabilidad porque al probar la red parece tener mejores resultados."
 
 # ╔═╡ c5648497-3603-471e-9a8e-2afb976d7674
 # Graficamos los datos de entrada de la red
@@ -101,108 +120,8 @@ labels = false,
 title = "PCA para S(t)",
 )
 
-# ╔═╡ 40a22fcc-a20a-41ea-9e18-33732a440772
-begin
-	# Red neuronal para relacionar los datos de las señales con los de las distribuciones de probabilidad
-
-	# Definimos la red neuronal
-	
-	model = Chain(
-	    Dense(2, 10, relu),
-	    Dense(10, 25, relu),
-	    Dense(25,10, tanh_fast),
-	    Dense(10, 2)
-	)
-	
-	# Definimos la función de pérdida
-	
-	loss(x, y) = Flux.mse(model(x), y)
-	
-	# Definimos el optimizador
-	
-	opt = ADAM(1e-6)
-	
-	# Definimos el número de épocas
-	
-	epochs = 1
-	
-	# Definimos el batch size
-	
-	batch_size = 100
-	
-	# Definimos el número de batches
-	
-	n_batches = Int(ceil(size(dataprobd, 2) / batch_size))
-	
-	# Usamos dataloader para cargar los datos
-	
-	data = Flux.DataLoader((datasignals, dataprobd), batchsize = batch_size, shuffle = true)
-	
-	# Definimos el vector donde guardamos la pérdida
-	
-	losses = zeros(epochs)
-	
-	# Definimos el vector donde guardamos los parámetros de la red neuronal
-	
-	params = Flux.params(model)
-	
-	# Definimos una funcion de callback para ver el progreso del entrenamiento
-	
-	iter = 0
-	epoch_iter = 0
-	cb = function()
-	    global iter
-	    global epoch_iter
-	    iter += 1
-	    # Record Loss
-	    if iter % length(data) == 0
-	        epoch_iter += 1
-	        actual_loss = loss(data.data[1], data.data[2])
-	        if epoch_iter % 1 == 0
-	            println("Epoch $epoch_iter || Loss = $actual_loss")
-	        end
-	        losses[epoch_iter] = actual_loss
-	    end
-	end;
-end
-
-# ╔═╡ 08495c0d-f0a3-480c-93c3-13c049cebc43
-# Entrenamos la red neuronal
-for _ in 1:epochs
-    Flux.train!(loss, Flux.params(model, opt), data, opt, cb = cb)
-end
-
-# ╔═╡ a8308b65-fd3c-4fcf-bedb-c7ab730a57cd
-# Graficamos la pérdida
-plot(1:epochs, losses, xlabel = "Epochs", ylabel = "Loss", title = "Loss vs Epochs")
-
-# ╔═╡ 61bcbe33-98bc-46a3-9fa8-91a3954f46c9
-begin
-	predicteddp = model(datasignals)
-
-	df_predict = DataFrame(
-	    pc1 = predicteddp[1, :],
-	    pc2 = predicteddp[2, :],
-	    σs = column_σs,
-	    lcm = column_lcm,
-	)
-	
-	plot_lcms_P = @df df_predict StatsPlots.scatter(
-	    :pc1,
-	    :pc2,
-	    group = :lcm,
-	    marker = (1,5),
-	    xaxis = (title = "PC1"),
-	    yaxis = (title = "PC2"),
-	    xlabel = "PC1",
-	    ylabel = "PC2",
-	    labels = false,  # Use the modified labels
-	    title = "PCA para P(lc)",
-	)
-end
-
-# ╔═╡ e1882657-c767-4d28-a2b7-b258f5bc8c7f
-# Graficamos los datos de salida de la red 
+# ╔═╡ f1fa9774-d923-4093-bdd1-f97cd6a8f78e
+# Graficamos los datos de salida, 
 plot_lcms_P = @df df_dataprobd StatsPlots.scatter(
     :pc1,
     :pc2,
@@ -216,30 +135,147 @@ plot_lcms_P = @df df_dataprobd StatsPlots.scatter(
     title = "PCA para P(lc)",
 )
 
+# ╔═╡ 549e5186-0ae1-4b7b-8f70-8b801f5716a4
+md"Ahora definimos la arquitectura de la red neuronal, usamos una función de pérdida MSE, un paso de aprendizaje adaptativo que comienza en $1\times 10^{-4}$ y cambia luego de 500 epocas a $1\times 10^{-6}$. Se entrena la red durante mil épocas llegando a una convergencia."
+
+# ╔═╡ 40a22fcc-a20a-41ea-9e18-33732a440772
+begin
+    # Red neuronal para relacionar los datos de las señales con los de las distribuciones de probabilidad
+
+    # Definimos la red neuronal
+
+    model = Chain(
+        Dense(2, 10, relu),
+        Dense(10, 25, relu),
+        Dense(25, 50, tanh_fast),
+        Dense(50, 50, tanh_fast),
+        Dense(50, 2)
+    )
+
+    # Definimos la función de pérdida
+
+    function loss(x,y)
+        return Flux.mse(model(x), y)
+    end
+
+    #loss(x, y) = Flux.mse(model(x), y)
+
+    # Definimos el optimizador
+
+    opt = ADAM(1e-4)
+
+    # Definimos el número de épocas
+
+    epochs = 1000
+
+    # Definimos el batch size
+
+    batch_size = 100
+
+    # Usamos dataloader para cargar los datos
+
+    data = Flux.DataLoader((datasignals, dataprobd), batchsize = batch_size, shuffle = true)
+    data_valid = Flux.DataLoader((datasignals_valid, dataprobd_valid), batchsize = batch_size, shuffle = true)
+
+    # Definimos el vector donde guardamos la pérdida
+
+    losses = zeros(epochs)
+    losses_valid = zeros(epochs)
+
+    # Definimos el vector donde guardamos los parámetros de la red neuronal
+
+    params = Flux.params(model)
+
+    # Definimos una funcion de callback para ver el progreso del entrenamiento
+
+    iter = 0
+    epoch_iter = 0
+    cb = function()
+        global iter
+        global epoch_iter
+        iter += 1
+        # Record Loss
+        if iter % length(data) == 0
+            epoch_iter += 1
+            actual_loss = loss(data.data[1], data.data[2])
+            actual_valid_loss = loss(data_valid.data[1], data_valid.data[2])
+            if epoch_iter % 1 == 0
+                println("Epoch $epoch_iter || Loss = $actual_loss || Valid Loss = $actual_valid_loss")
+            end
+            losses[epoch_iter] = actual_loss
+            losses_valid[epoch_iter] = actual_valid_loss
+        end
+    end;
+end
+
+# ╔═╡ 08495c0d-f0a3-480c-93c3-13c049cebc43
+# Entrenamos la red neuronal
+# for epoch in 1:epochs
+#     Flux.train!(loss, Flux.params(model, opt), data, opt, cb = cb)
+#     if epoch == 500   # then change to use η = 0.01 for the rest.
+#         opt = ADAM(1e-6)
+#     end
+# end
+
+# ╔═╡ a8308b65-fd3c-4fcf-bedb-c7ab730a57cd
+# Graficamos la pérdida
+PlutoUI.Resource("https://imgur.com/5zWL2mk.png")
+
+# ╔═╡ 63109fa7-d898-4ae1-b056-97abbeeb8913
+md"Se llegó a minimos con una discrepancia media del total de datos del 1.8% en los datos de entrenamiento y 2% en los datos de validación"
+
+# ╔═╡ 0ae127da-ad51-4ba4-9472-4a4d5379dd78
+md"Grafiquemos tambien las predicciones que realiza la red neuronal."
+
+# ╔═╡ 61bcbe33-98bc-46a3-9fa8-91a3954f46c9
+begin
+    PlutoUI.Resource("https://imgur.com/R5KORjG.png")
+end
+
+# ╔═╡ e2661689-0e59-4c59-9491-55b59ab3cd71
+md"Se ve que la red reproduce los datos de salida muy bien en una zona donde $l_{cm} < 2.2$ $\mu$m que se corresponde a (PC1 $\approx 0$) y tambien empeora a medida que aumenta $\sigma$ es decir en lo que pareciera ser el radio interior de esta estructura."
+
+# ╔═╡ 02492e5b-12b5-4bc4-bcdf-949f0b81fc29
+PlutoUI.Resource("https://imgur.com/6teS57y.png")
+
+# ╔═╡ f89291bc-47c4-48ce-b5cd-b4301b839090
+# plot_lcms_P_pred = @df df_predict_valid StatsPlots.scatter(
+#     :pc1,
+#     :pc2,
+#     group = :lcm,
+#     marker = (1,5),
+#     xaxis = (title = "PC1"),
+#     yaxis = (title = "PC2"),
+#     xlabel = "PC1",
+#     ylabel = "PC2",
+#     labels = false,
+#     title = "PCA predecido por la red para P(lc)",
+# )
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 MultivariateStats = "6f286f6a-111f-5878-ab1e-185364afe411"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
 CSV = "~0.10.11"
-CUDA = "~5.0.0"
 DataFrames = "~1.6.1"
 Distributions = "~0.25.102"
 Flux = "~0.14.6"
 LaTeXStrings = "~1.3.0"
 MultivariateStats = "~0.10.2"
 Plots = "~1.39.0"
+PlutoUI = "~0.7.52"
 ProgressMeter = "~1.9.0"
 StatsPlots = "~0.15.6"
 """
@@ -250,7 +286,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.1"
 manifest_format = "2.0"
-project_hash = "4c8b434299f1ce041ad5f8934d4a2e227d7d1268"
+project_hash = "adac5b11627462713c2e7499c7da5965212954f5"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -262,6 +298,12 @@ weakdeps = ["ChainRulesCore", "Test"]
     [deps.AbstractFFTs.extensions]
     AbstractFFTsChainRulesCoreExt = "ChainRulesCore"
     AbstractFFTsTestExt = "Test"
+
+[[deps.AbstractPlutoDingetjes]]
+deps = ["Pkg"]
+git-tree-sha1 = "91bd53c39b9cbfb5ef4b015e8b582d344532bd0a"
+uuid = "6e696c72-6542-2067-7265-42206c756150"
+version = "1.2.0"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra", "Requires"]
@@ -308,12 +350,6 @@ deps = ["LinearAlgebra", "Random", "SparseArrays", "WoodburyMatrices"]
 git-tree-sha1 = "66771c8d21c8ff5e3a93379480a2307ac36863f7"
 uuid = "13072b0f-2c55-5437-9ae7-d433b7a33950"
 version = "1.0.1"
-
-[[deps.BFloat16s]]
-deps = ["LinearAlgebra", "Printf", "Random", "Test"]
-git-tree-sha1 = "dbf84058d0a8cbbadee18d25cf606934b22d7c66"
-uuid = "ab4f0b2a-ad5b-11e8-123f-65d77653426b"
-version = "0.4.2"
 
 [[deps.BangBang]]
 deps = ["Compat", "ConstructionBase", "InitialValues", "LinearAlgebra", "Requires", "Setfield", "Tables"]
@@ -364,34 +400,6 @@ deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers
 git-tree-sha1 = "44dbf560808d49041989b8a96cae4cffbeb7966a"
 uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 version = "0.10.11"
-
-[[deps.CUDA]]
-deps = ["AbstractFFTs", "Adapt", "BFloat16s", "CEnum", "CUDA_Driver_jll", "CUDA_Runtime_Discovery", "CUDA_Runtime_jll", "Crayons", "DataFrames", "ExprTools", "GPUArrays", "GPUCompiler", "KernelAbstractions", "LLVM", "LazyArtifacts", "Libdl", "LinearAlgebra", "Logging", "NVTX", "Preferences", "PrettyTables", "Printf", "Random", "Random123", "RandomNumbers", "Reexport", "Requires", "SparseArrays", "Statistics", "UnsafeAtomicsLLVM"]
-git-tree-sha1 = "f062a48c26ae027f70c44f48f244862aec47bf99"
-uuid = "052768ef-5323-5732-b1bb-66c8b64840ba"
-version = "5.0.0"
-weakdeps = ["SpecialFunctions"]
-
-    [deps.CUDA.extensions]
-    SpecialFunctionsExt = "SpecialFunctions"
-
-[[deps.CUDA_Driver_jll]]
-deps = ["Artifacts", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
-git-tree-sha1 = "2f64185414751a5f878c4ab616c0edd94ade3419"
-uuid = "4ee394cb-3365-5eb0-8335-949819d2adfc"
-version = "0.6.0+4"
-
-[[deps.CUDA_Runtime_Discovery]]
-deps = ["Libdl"]
-git-tree-sha1 = "bcc4a23cbbd99c8535a5318455dcf0f2546ec536"
-uuid = "1af6417a-86b4-443c-805f-a4643ffb695f"
-version = "0.2.2"
-
-[[deps.CUDA_Runtime_jll]]
-deps = ["Artifacts", "CUDA_Driver_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "TOML"]
-git-tree-sha1 = "f021287796bf1e72ffaacf831965672e57f27edb"
-uuid = "76a88914-d11a-5bdc-97e0-2f5a05c973a2"
-version = "0.9.2+2"
 
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
@@ -642,11 +650,6 @@ git-tree-sha1 = "4558ab818dcceaab612d1bb8c19cee87eda2b83c"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
 version = "2.5.0+0"
 
-[[deps.ExprTools]]
-git-tree-sha1 = "27415f162e6028e81c72b82ef756bf321213b6ec"
-uuid = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
-version = "0.1.10"
-
 [[deps.FFMPEG]]
 deps = ["FFMPEG_jll"]
 git-tree-sha1 = "b57e3acbe22f8484b4b5ff66a7499717fe1a9cc8"
@@ -789,12 +792,6 @@ git-tree-sha1 = "2d6ca471a6c7b536127afccfa7564b5b39227fe0"
 uuid = "46192b85-c4d5-4398-a991-12ede77f4527"
 version = "0.1.5"
 
-[[deps.GPUCompiler]]
-deps = ["ExprTools", "InteractiveUtils", "LLVM", "Libdl", "Logging", "Scratch", "TimerOutputs", "UUIDs"]
-git-tree-sha1 = "5e4487558477f191c043166f8301dd0b4be4e2b2"
-uuid = "61eb1bfa-7361-4325-ad38-22787b887f55"
-version = "0.24.5"
-
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
 git-tree-sha1 = "27442171f28c952804dede8ff72828a96f2bfc1f"
@@ -847,6 +844,24 @@ deps = ["DualNumbers", "LinearAlgebra", "OpenLibm_jll", "SpecialFunctions"]
 git-tree-sha1 = "f218fe3736ddf977e0e772bc9a586b2383da2685"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
 version = "0.3.23"
+
+[[deps.Hyperscript]]
+deps = ["Test"]
+git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
+uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
+version = "0.0.4"
+
+[[deps.HypertextLiteral]]
+deps = ["Tricks"]
+git-tree-sha1 = "c47c5fa4c5308f27ccaac35504858d8914e102f9"
+uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
+version = "0.9.4"
+
+[[deps.IOCapture]]
+deps = ["Logging", "Random"]
+git-tree-sha1 = "d75853a0bdbfb1ac815478bacd89cd27b550ace6"
+uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
+version = "0.2.3"
 
 [[deps.IRTools]]
 deps = ["InteractiveUtils", "MacroTools", "Test"]
@@ -919,12 +934,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "6f2675ef130a300a112286de91973805fcc5ffbc"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.91+0"
-
-[[deps.JuliaNVTXCallbacks_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "af433a10f3942e882d3c671aacb203e006a5808f"
-uuid = "9c1d0b0a-7046-5b2e-a33f-ea22f176ac7e"
-version = "0.2.1+0"
 
 [[deps.JuliaVariables]]
 deps = ["MLStyle", "NameResolution"]
@@ -1108,6 +1117,11 @@ git-tree-sha1 = "c1dd6d7978c12545b4179fb6153b9250c96b0075"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.3"
 
+[[deps.MIMEs]]
+git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
+uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
+version = "0.1.4"
+
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
 git-tree-sha1 = "eb006abbd7041c28e0d16260e50a24f8f9104913"
@@ -1193,18 +1207,6 @@ version = "0.9.7"
     CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
     EnzymeCore = "f151be2c-9106-41f4-ab19-57ee4f262869"
     cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
-
-[[deps.NVTX]]
-deps = ["Colors", "JuliaNVTXCallbacks_jll", "Libdl", "NVTX_jll"]
-git-tree-sha1 = "8bc9ce4233be3c63f8dcd78ccaf1b63a9c0baa34"
-uuid = "5da4648a-3479-48b8-97b9-01cb529c0a1f"
-version = "0.3.3"
-
-[[deps.NVTX_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "ce3269ed42816bf18d500c9f63418d4b0d9f5a3b"
-uuid = "e98f9f5b-d649-5603-91fd-7774390e6439"
-version = "3.1.0+2"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
@@ -1361,6 +1363,12 @@ version = "1.39.0"
     ImageInTerminal = "d8c32880-2388-543b-8c61-d9f865259254"
     Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
+[[deps.PlutoUI]]
+deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
+git-tree-sha1 = "e47cd150dbe0443c3a3651bc5b9cbd5576ab75b7"
+uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+version = "0.7.52"
+
 [[deps.PooledArrays]]
 deps = ["DataAPI", "Future"]
 git-tree-sha1 = "36d8b4b899628fb92c2749eb488d884a926614d3"
@@ -1425,18 +1433,6 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 [[deps.Random]]
 deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-
-[[deps.Random123]]
-deps = ["Random", "RandomNumbers"]
-git-tree-sha1 = "552f30e847641591ba3f39fd1bed559b9deb0ef3"
-uuid = "74087812-796a-5b5d-8853-05524746bad3"
-version = "1.6.1"
-
-[[deps.RandomNumbers]]
-deps = ["Random", "Requires"]
-git-tree-sha1 = "043da614cc7e95c703498a491e2c21f58a2b8111"
-uuid = "e6cf234a-135c-5ec9-84dd-332b85af5143"
-version = "1.5.3"
 
 [[deps.Ratios]]
 deps = ["Requires"]
@@ -1692,12 +1688,6 @@ version = "0.1.1"
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
-[[deps.TimerOutputs]]
-deps = ["ExprTools", "Printf"]
-git-tree-sha1 = "f548a9e9c490030e545f72074a41edfd0e5bcdd7"
-uuid = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
-version = "0.5.23"
-
 [[deps.TranscodingStreams]]
 git-tree-sha1 = "7c9196c8c83802d7b8ca7a6551a0236edd3bf731"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
@@ -1726,6 +1716,11 @@ version = "0.4.78"
     LazyArrays = "5078a376-72f3-5289-bfd5-ec5146d43c02"
     OnlineStatsBase = "925886fa-5bf2-5e8e-b522-a9147a512338"
     Referenceables = "42d2dcc6-99eb-4e98-b66c-637b7d73030e"
+
+[[deps.Tricks]]
+git-tree-sha1 = "eae1bb484cd63b36999ee58be2de6c178105112f"
+uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
+version = "0.1.8"
 
 [[deps.URIs]]
 git-tree-sha1 = "67db6cc7b3821e19ebe75791a9dd19c9b1188f2b"
@@ -2121,12 +2116,20 @@ version = "1.4.1+1"
 # ╟─db586979-9fd9-4808-b7f1-c8781fdc541b
 # ╠═73e90ad7-d6f0-4657-b7e3-9d1f304f3718
 # ╠═8f4e4d25-365a-4e01-be12-35f6bc3e1259
+# ╟─a1e9328d-3914-4cb9-b89c-04dc150bcab5
 # ╠═fc760941-c36a-4039-bc27-8808db80682a
+# ╟─21930f83-65d5-4aaa-b4f1-a32508c54d5c
 # ╠═c5648497-3603-471e-9a8e-2afb976d7674
-# ╠═e1882657-c767-4d28-a2b7-b258f5bc8c7f
+# ╠═f1fa9774-d923-4093-bdd1-f97cd6a8f78e
+# ╟─549e5186-0ae1-4b7b-8f70-8b801f5716a4
 # ╠═40a22fcc-a20a-41ea-9e18-33732a440772
 # ╠═08495c0d-f0a3-480c-93c3-13c049cebc43
 # ╠═a8308b65-fd3c-4fcf-bedb-c7ab730a57cd
+# ╟─63109fa7-d898-4ae1-b056-97abbeeb8913
+# ╟─0ae127da-ad51-4ba4-9472-4a4d5379dd78
 # ╠═61bcbe33-98bc-46a3-9fa8-91a3954f46c9
+# ╟─e2661689-0e59-4c59-9491-55b59ab3cd71
+# ╠═02492e5b-12b5-4bc4-bcdf-949f0b81fc29
+# ╠═f89291bc-47c4-48ce-b5cd-b4301b839090
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

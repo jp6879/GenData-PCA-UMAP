@@ -172,7 +172,7 @@ pls = Plots.plot(embedding_IN_plots[1], embedding_IN_plots[2], embedding_IN_plot
                 embedding_IN_plots[10], embedding_IN_plots[11], embedding_IN_plots[12],
                 layout = (4,3), size = (1100,1000))
 
-savefig(pls, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Plots\\UMAP\\UMAP_Signals_from_Pluto.png")
+savefig(pls, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Plots\\UMAP\\UMAP_Signals_o.png")
 
 ####################### UMAP Probd
 
@@ -260,4 +260,4 @@ pl = Plots.plot(embedding_OUT_plots[1], embedding_OUT_plots[2], embedding_OUT_pl
                 embedding_OUT_plots[10], embedding_OUT_plots[11], embedding_OUT_plots[12],
                 layout = (4,3), size = (1100,1000))
 
-savefig(pl, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Plots\\UMAP\\UMAP_Probd_from_Pluto.png")
+savefig(pl, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Plots\\UMAP\\UMAP_Probd_.png")
