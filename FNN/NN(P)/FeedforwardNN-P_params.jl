@@ -39,6 +39,12 @@ t = range(0, tf, length = time_sample_lenght)
 lcms = 0.5:0.01:6
 σs = 0.01:0.01:1
 
+#-----------------------------------------------------------------------------------------
+
+function P(lcm, σ)
+    return ( exp( -(log(lc) - log(lcm))^2 / (2σ^2) ) ) / (lc*σ*sqrt(2π))
+end
+
 #------------------------------------------------------------------------------------------
 
 # Leemos los datos a los que les realizamos PCA
@@ -124,69 +130,11 @@ lcm_valid = Float32.(df_datasignals[1:step_valid:num_datos,4])
 σ_col = Float32.(df_datasignals[setdiff(1:num_datos, 1:step_valid:num_datos),3])
 lcm_col = Float32.(df_datasignals[setdiff(1:num_datos, 1:step_valid:num_datos),4])
 
-# # Hacemos una matriz con los datos de sigma y los datos de lcm 
-# params_matrix = collect(σs) .* collect(lcms)'
-
 dataparams = hcat(σ_col, lcm_col)'
 dataparams_valid = hcat(σ_valid, lcm_valid)'
 
-out_of_sample_data = []
-out_of_sample_pred = []
-
-loss_plots = []
-scores = []
-
-fold = 0
-#------------------------------------------------------------------------------------------
-# Test
-# Extract from the data all the values with σ>0.6
-
-# datasignals_test = df_datasignals[df_datasignals[!, 3] .< 0.6, :]
-
-# datasignals = Float32.(Matrix(datasignals_test[:,1:2])')
-# σ_col = datasignals_test[:,3]
-# lcm_col = datasignals_test[:,4]
-# dataparams = hcat(σ_col, lcm_col)'
-
-# for i in 1:2
-#     dataparams[i,:] = MaxMin(dataparams[i,:])
-#     datasignals[i,:] = MaxMin(datasignals[i,:])
-# end
-
-# scatter(dataparams[1,:], dataparams[2,:], xlabel = "σ", ylabel = "lcm", label = "Datos de entrenamiento", title = "Datos de entrenamiento", size = (800, 400))
-
-# for i in 1:length(dataparams[1,:])
-#     r, theta = curve_points(dataparams[1,i], dataparams[2,i])
-#     dataparams[1,i] = r
-#     dataparams[2,i] = theta
-# end
-
-# scatter(dataparams[1,:], dataparams[2,:], xlabel = "r", ylabel = "θ", label = "Datos de entrenamiento", title = "Datos de entrenamiento", size = (800, 400))
 
 #------------------------------------------------------------------------------------------
-
-# df_datasignals = df_datasignals[df_datasignals[!, :σ] .< 0.7, :]
-# df_datasignals = df_datasignals[df_datasignals[!, :lcm] .> 0.6, :]
-# df_datasignals = df_datasignals[df_datasignals[!, :lcm] .< 0.7, :]
-
-
-# datasignals_valid = Float32.(Matrix(df_datasignals[1:step_valid:num_datos,1:2])')
-# datasignals = Float32.(Matrix(df_datasignals[setdiff(1:num_datos, 1:step_valid:num_datos),1:2])')
-
-# σ_valid = df_datasignals[1:step_valid:num_datos,3]
-# lcm_valid = df_datasignals[1:step_valid:num_datos,4]
-
-# σ_col = df_datasignals[setdiff(1:num_datos, 1:step_valid:num_datos),3]
-# lcm_col = df_datasignals[setdiff(1:num_datos, 1:step_valid:num_datos),4]
-
-# dataparams = hcat(σ_col, lcm_col)'
-# dataparams_valid = hcat(σ_valid, lcm_valid)'
-
-# for i in 1:2
-#     dataparams[i,:] = MaxMin(dataparams[i,:])
-#     dataparams_valid[i,:] = MaxMin(dataparams_valid[i,:])
-# end
-
 # Definimos la red neuronal
 
 model = Chain(
@@ -201,7 +149,7 @@ model = Chain(
 # Función de loss
 function loss(x,y)
     # penalty = sum(pen_l2, Flux.params(model))
-    return Flux.mse(model(x),y)
+    return Flux.mse(P(model(x)), P(y))
 end
 
 # Definimos el optimizador
@@ -219,7 +167,7 @@ data_valid = Flux.DataLoader((dataparams_valid, datasignals_valid), batchsize = 
 
 # Definimos el vector donde guardamos la pérdida
 losses = zeros(epochs)
-# losses_valid = zeros(epochs)
+losses_valid = zeros(epochs)
 
 # Definimos el vector donde guardamos los parámetros de la red neuronal
 params = Flux.params(model)
@@ -230,16 +178,15 @@ epoch_iter = 0
 cb = function()
     global epoch_iter
     global iter += 1
-    # Record Loss
     if iter % length(data) == 0
         epoch_iter += 1
         actual_loss = loss(data.data[1], data.data[2])
-        # actual_valid_loss = loss(data_valid.data[1], data_valid.data[2])
+        actual_valid_loss = loss(data_valid.data[1], data_valid.data[2])
         if epoch_iter % 1 == 0
-            println("Epoch $epoch_iter || Loss = $actual_loss") #|| Valid Loss = $actual_valid_loss")
+            println("Epoch $epoch_iter || Loss = $actual_loss || Valid Loss = $actual_valid_loss")
         end
         losses[epoch_iter] = actual_loss
-        # losses_valid[epoch_iter] = actual_valid_loss
+        losses_valid[epoch_iter] = actual_valid_loss
     end
 end;
 
@@ -251,14 +198,16 @@ for epoch in 1:epochs
     end
 end
 
+#------------------------------------------------------------------------------------------
+
 # Graficamos la pérdida
 
 pl_loss = plot(1:epochs, losses, xlabel = "Epocas", ylabel = "Loss", label = "Loss datos de entrenamiento", logy = true)
-#plot!(1:epochs, losses_valid, xlabel = "Epocas", ylabel = "Loss", label = "Loss datos de validación", logy = true)
-
-# Métricas de validación de la red
+plot!(1:epochs, losses_valid, xlabel = "Epocas", ylabel = "Loss", label = "Loss datos de validación", logy = true)
+savefig(pl_loss, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\FNN\\NN(P)\\Plots\\Loss_P2.png")
 
 #------------------------------------------------------------------------------------------
+
 
 # Grafiquemos las predicciones de la red para las señales
 predictions = model(dataparams)
@@ -295,15 +244,10 @@ plot_lcms_P_pred = @df df_predict StatsPlots.scatter(
     xlabel = "PC1",
     ylabel = "PC2",
     labels = false,
-    title = "Predicción datos entrenamiento",
+    title = "Predicción datos entrenamiento PCA de S(t)",
 )
 
-scatter!(dataparams[1,:], dataparams[2,:], xlabel = "σ", ylabel = "lcm", label = "Datos de entrenamiento", title = "Datos de entrenamiento", size = (800, 400))
-
-σ_recover = predictions[1,:] .* cos.(predictions[2,:])
-lcm_recover = predictions[1,:] .* sin.(predictions[2,:])
-
-scatter(σ_recover, lcm_recover, xlabel = "σ", ylabel = "lcm", label = "Datos de entrenamiento", title = "Datos de entrenamiento", size = (800, 400))
+savefig(plot_lcms_P_pred, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\FNN\\NN(P)\\Plots\\Predicciones_S.png")
 
 plot_lcms_P_pred_valid = @df df_predict_valid StatsPlots.scatter(
     :pc1,
@@ -315,5 +259,7 @@ plot_lcms_P_pred_valid = @df df_predict_valid StatsPlots.scatter(
     xlabel = "PC1",
     ylabel = "PC2",
     labels = false,
-    title = "Predicción datos validación PCA para P(lc)",
+    title = "Predicción datos validación PCA de S(t)",
 )
+
+savefig(plot_lcms_P_pred_valid, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\FNN\\NN(P)\\Plots\\Predicciones_S_valid.png")

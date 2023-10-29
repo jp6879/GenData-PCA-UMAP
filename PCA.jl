@@ -4,7 +4,8 @@ using DataFrames
 using CSV
 using Statistics
 using StatsPlots
-
+using PlotlyJS
+using Flux
 #------------------------------------------------------------------------------------------
 # Traemos los mismos datos de los parametros utilizados para generar los datos, deberiamos hacer una función grande en la proxima función que genere los datos donde les pasamos
 # Todos estos parámetros desde otro programa, como ahora generamos pocos datos me quedo con esto
@@ -58,6 +59,12 @@ path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\
 dataSignals = GetSignals(path_read)
 dataProbd = GetProbd(path_read)
 
+for i in 1:size(dataProbd)[2]
+    dataProbd[:,i] = dataProbd[:,i] ./ maximum(dataProbd[:,i])
+end
+
+Plots.plot(lc,dataProbd[:,1], label = "lcm = $(lcms[1]), σ = $(σs[1])")
+
 #------------------------------------------------------------------------------------------
 # Funcion que centra los datos
 
@@ -74,6 +81,7 @@ end
 
 function PCA_Data(dataIN)
 
+    # Primero centramos los datos
     dataIN_C = CenterData(dataIN)
 
     # Esto ya hace PCA sobre la matriz dada donde cada observación es una columna de la matriz
@@ -112,7 +120,7 @@ pcs_vars_pd = principalvars(pca_model_probd)
 limdim_S = 0
 limdim_P = 0
 for i in 1:length(pcs_vars_s)
-    if sum(pcs_vars_s[1:i]) / sum(pcs_vars_s) * 100 > 98
+    if sum(pcs_vars_s[1:i]) / sum(pcs_vars_s) * 100 > 99
         println("La varianza acumulada de las señales es del ", sum(pcs_vars_s[1:i]) / sum(pcs_vars_s) * 100, "% con ", i, " componentes principales")
         limdim_S = i
         break
@@ -120,7 +128,7 @@ for i in 1:length(pcs_vars_s)
 end
 
 for i in 1:length(pcs_vars_pd)
-    if sum(pcs_vars_pd[1:i]) / sum(pcs_vars_pd) * 100 > 99
+    if sum(pcs_vars_pd[1:i]) / sum(pcs_vars_pd) * 100 > 80
         println("La varianza acumulada de las distribuciones de probabilidad es del ", sum(pcs_vars_pd[1:i]) / sum(pcs_vars_pd) * 100, "% con ", i, " componentes principales")
         limdim_P = i
         break
@@ -177,53 +185,64 @@ end
 
 # Guardamos la identificacion y los datos transformados en un DataFrame para graficos, se podria tambien guardarlos en CSV
 
-# df_PCA_Signals = DataFrame(
-# 		pc1 = reduced_data_Signals[1, :],
-# 	    pc2 = reduced_data_Signals[2, :],
-# 	    σs = column_σs,
-# 	    lcm = column_lcm,
-# 	)
+df_PCA_Signals = DataFrame(
+		pc1 = reduced_data_Signals[1, :],
+	    pc2 = reduced_data_Signals[2, :],
+        pc3 = reduced_data_Signals[3, :],
+	    σs = column_σs,
+	    lcm = column_lcm,
+	)
 
-# df_PCA_Probd = DataFrame(
-#         pc1 = reduced_data_Probd[1, :],
-#         pc2 = reduced_data_Probd[2, :],
-#         σs = column_σs,
-#         lcm = column_lcm,
-#     )
+df_PCA_Probd = DataFrame(
+        pc1 = reduced_data_Probd[1, :],
+        pc2 = reduced_data_Probd[2, :],
+        pc3 = reduced_data_Probd[3, :],
+        σs = column_σs,
+        lcm = column_lcm,
+    )
 
 
-# plot_lcms_S = @df df_PCA_Signals StatsPlots.scatter(
-#     :pc1,
-#     :pc2,
-#     group = :lcm,
-#     marker = (0.4,5),
-#     xaxis = (title = "PC1"),
-#     yaxis = (title = "PC2"),
-#     xlabel = "PC1",
-#     ylabel = "PC2",
-#     labels = false,  # Use the modified labels
-#     title = "PCA para S(t)",
-# )
+plot_lcms_S = @df df_PCA_Signals StatsPlots.scatter(
+    :pc1,
+    :pc2,
+    group = :lcm,
+    marker = (0.4,5),
+    xaxis = (title = "PC1"),
+    yaxis = (title = "PC2"),
+    xlabel = "PC1",
+    ylabel = "PC2",
+    labels = false,  # Use the modified labels
+    title = "PCA para S(t)",
+)
 
-# plot_lcms_PD = @df df_PCA_Probd StatsPlots.scatter(
-#     :pc1,
-#     :pc2,
-#     group = :lcm,
-#     marker = (0.4,5),
-#     xaxis = (title = "PC1"),
-#     yaxis = (title = "PC2"),
-#     xlabel = "PC1",
-#     ylabel = "PC2",
-#     labels = false,  # Use the modified labels
-#     title = "PCA para P(lc)"
-# )
+
+plot_lcms_PD = @df df_PCA_Probd StatsPlots.scatter(
+    :pc1,
+    :pc2,
+    group = :σs,
+    marker = (0.4,5),
+    xaxis = (title = "PC1"),
+    yaxis = (title = "PC2"),
+    xlabel = "PC1",
+    ylabel = "PC2",
+    labels = false,  # Use the modified labels
+    title = "PCA para P(lc)"
+)
+
+PlotlyJS.plot(
+    df_PCA_Probd, Layout(margin=attr(l=0, r=0, b=0, t=0)),
+    x=:pc1, y=:pc2, z=:pc3, color=:σs,
+    type="scatter3d", mode="markers", hoverinfo="text", hovertext=:lcm,
+)
 
 # Guardamos estos datos en CSV
 
-#path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Little_Data\\Little_Data_CSV"
-path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA"
+# path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Little_Data\\Little_Data_CSV"
+# path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA"
 
-# CSV.write(path_save * "\\df_PCA_Signals.csv", df_PCA_Signals)
-CSV.write(path_save * "\\df_PCA_Probd_99var.csv", df_PCA_Probd)
+path_save = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA\\PCA3D"
+
+CSV.write(path_save * "\\df_PCA_Signal_100var.csv", df_PCA_Signals)
+CSV.write(path_save * "\\df_PCA_Probd_86var.csv", df_PCA_Probd)
 
 #------------------------------------------------------------------------------------------

@@ -129,7 +129,7 @@ function ReadCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs, path)
         # xlims!(pl, (0,tf))
         # xlims!(pl2, (0,lf))
         for σ in σs
-            df = CSV.read(path * "/$(lcm)_$(σ)l_2k.csv", DataFrame)
+            df = CSV.read(path * "/$(lcm)_$(σ)l_$N.csv", DataFrame)
             # plot!(pl,df.t[1:length_t], df.S[1:length_t], label = "lcm = $(lcm), σ = $(σ)", legend = false)
             # plot!(pl2,df.l, df.P_l, label = "lcm = $(lcm), σ = $(σ)", legend = false)
 
