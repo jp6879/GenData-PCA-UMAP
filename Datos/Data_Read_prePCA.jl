@@ -6,12 +6,12 @@ using DataFrames
 # Parámetros fijos
 
 # Lo que dejamos constante es el número de compartimientos, el rango de tamaños de correlación lc, el tiempo de simulación final y el muestreo de timepos
-N = 2000
+N = 1700
 time_sample_lenght = 100
 
 # Rango de tamaños de compartimientos en μm
-l0 = 0.01
-lf = 15
+l0 = 0.05
+lf = 10
 
 # Tiempo final de simulación en s
 tf = 1
@@ -23,16 +23,16 @@ t = range(0, tf, length = time_sample_lenght)
 # Parametros que se varian
 
 # Rango de tamaños medios de correlación en μm
-lcms = 0.5:0.01:6
+lcms = 0.5:0.005:6
 σs = 0.01:0.01:1
 
 length(lcms) * length(σs)
 
 #------------------------------------------------------------------------------------------
 # Generación de datos en CSV para cada combinación de parámetros en el path especificado, este va a ser el mismo que use para leer los datos
-path = "C:/Users/Propietario/Desktop/ib/5-Maestría/GenData-PCA-UMAP/Datos/DatosCSV"
+path = "C:/Users/Propietario/Desktop/ib/5-Maestría/GenData-PCA-UMAP/Datos/XLData"
 
-# GenCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs, path)
+GenCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs, path)
 
 #------------------------------------------------------------------------------------------
 
