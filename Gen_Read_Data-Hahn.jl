@@ -1,6 +1,6 @@
 # Generación de datos de RMN Hahn
 using CSV
-
+using Plots
 # Poner una semilla random para reproducibilidad (opcional)
 # Random.seed!(0)
 
@@ -37,6 +37,7 @@ function S_han(lcm, σ, N, l0, lf, t)
     lc = range(l0, lf, length = N) # Generamos los tamaños de compartimientos lc desde l0 hasta lf
 
     P_lc = P.(lc,lcm, σ) # Consideramos media lcm y ancho σ
+    
     M_lc = Ml_Hahn.(t, lc) # Calculamos M_lc(t) para cada tamaño de compartimiento
     
     S = sum(M_lc .* P_lc)
@@ -54,7 +55,6 @@ end
 # lf: tamaño máximo de compartimiento
 # time_sim: tiempo máximo de simulación
 # time_sample_lenght: cantidad de puntos de tiempo
-
 
 function GenData(N, lcm, σ, l0, lf, time_sim, time_sample_lenght)
     # Generamos los tiempos de difusión y de tamaños de compartimientos
@@ -144,3 +144,35 @@ function ReadCSVData(N, time_sample_lenght, l0, lf, tf, lcms, σs, path)
     return Probabilitys, Signals
 
 end
+
+
+
+σs = [0.01, 1]
+lcms = [0.5, 6]
+N = 2000
+l0 = 0.01
+lf = 50
+lcs = range(l0,lf, N)
+t = 0:1e-4:0.5
+
+signals = []
+for σ in σs
+    for lcm in lcms
+        push!(signals, S_han.(lcm, σ, N, l0, lf, t) ./ S_han(lcm, σ, N, l0, lf, 0)) 
+    end
+end
+
+plot(t, signals[1], xlabel = "t (s)", ylabel = "S(t)", label = "σ = $(σs[1]) lcm = $(lcms[1]) μm")
+plot!(t, signals[2], xlabel = "t (s)", ylabel = "S(t)", label = "σ = $(σs[1]) lcm = $(lcms[2]) μm")
+plot!(t, signals[3], xlabel = "t (s)", ylabel = "S(t)", label = "σ = $(σs[2]) lcm = $(lcms[1]) μm")
+plot!(t, signals[4], xlabel = "t (s)", ylabel = "S(t)", label = "σ = $(σs[2]) lcm = $(lcms[2]) μm",legend =:inside)  # Consideramos media lcm y ancho σ
+
+
+# Create a Layout with all this plots
+
+l = @layout [a b; c d]
+p1 = plot(lcs, P.(lcs, 0.5, 0.01),xlabel = "lc (μm)", ylabel = "P(lc)", label = "σ = $(σs[1]) lcm = $(lcms[1]) μm", xlims = (0,1)) 
+p2 = plot(lcs, P.(lcs, 6, 0.01),xlabel = "lc (μm)", ylabel = "P(lc)", label = "σ = $(σs[1]) lcm = $(lcms[2]) μm", xlims = (5,7))
+p3 = plot(lcs, P.(lcs, 0.5, 1),xlabel = "lc (μm)", ylabel = "P(lc)", label = "σ = $(σs[2]) lcm = $(lcms[1]) μm", xlims = (0,10))
+p4 = plot(lcs, P.(lcs, 6, 1), xlabel = "lc (μm)", ylabel = "P(lc)", label = "σ = $(σs[2]) lcm = $(lcms[2]) μm")
+plot(p1, p2, p3, p4, layout = l, size = (1000, 1000))

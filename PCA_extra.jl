@@ -128,7 +128,9 @@ begin
 end;
 
 # ╔═╡ d2a666c8-99ef-456f-9e4a-7925a33dce53
-plll = Plots.plot(plot_lcms_S, signal_plot, layout = (2,1), size = (800,1000))
+begin
+	plll = Plots.plot(plot_lcms_S, signal_plot, layout = (2,1), size = (800,1000))
+end
 
 # ╔═╡ 58a59ed0-7a85-4a9e-851a-d5a96c8080d1
 begin

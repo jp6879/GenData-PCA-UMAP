@@ -21,12 +21,12 @@ using LaTeXStrings
 # Parámetros fijos
 
 # Lo que dejamos constante es el número de compartimientos, el rango de tamaños de correlación lc, el tiempo de simulación final y el muestreo de timepos
-N = 2000
+N = 1700
 time_sample_lenght = 100
 
 # Rango de tamaños de compartimientos en μm
-l0 = 0.01
-lf = 15
+l0 = 0.05
+lf = 10
 
 # Tiempo final de simulación en s
 tf = 1
@@ -38,34 +38,29 @@ t = range(0, tf, length = time_sample_lenght)
 # Parametros que se varian
 
 # Rango de tamaños medios de correlación en μm
-lcms = 0.5:0.01:6
+lcms = 0.5:0.005:6
 σs = 0.01:0.01:1
 
 #------------------------------------------------------------------------------------------
 # Leemos los datos a los que les realizamos PCA
 
-path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA"
+# Leemos los datos a los que les realizamos PCA
+path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA\\PCAXL"
 df_datasignals = CSV.read(path_read * "\\df_PCA_Signals.csv", DataFrame)
+#datasignals = Matrix(df_datasignals)
+
+df_dataprobd = CSV.read(path_read * "\\df_PCA_Probd_86var.csv", DataFrame)
+#dataprobd = Matrix(df_dataprobd)
 
 #------------------------------------------------------------------------------------------
 
-# num_datos = Int(size(df_datasignals, 1)) # Numero de datos
+num_datos = Int(size(df_datasignals, 1)) # Numero de datos
 
-# datasignals_valid = Float32.(Matrix(df_datasignals[1:10:num_datos,1:2])')
-# datasignals = Float32.(Matrix(df_datasignals[setdiff(1:num_datos, 1:10:num_datos),1:2])')
+datasignals = Float32.(Matrix(df_datasignals[:,1:3])')
+dataprobd = Float32.(Matrix(df_dataprobd[:,1:3])')
 
-# σ_valid = df_datasignals[1:step_valid:num_datos,3]
-# lcm_valid = df_datasignals[1:step_valid:num_datos,4]
-
-# σ_col = df_datasignals[setdiff(1:num_datos, 1:step_valid:num_datos),3]
-# lcm_col = df_datasignals[setdiff(1:num_datos, 1:step_valid:num_datos),4]
-
-datasignals_test = df_datasignals[df_datasignals[!, 3] .< 0.6, :]
-datasignals = Float32.(Matrix(datasignals_test[:,1:2])')
-
-σ_col = datasignals_test[:,3]
-lcm_col = datasignals_test[:,4]
-dataparams = hcat(σ_col, lcm_col)'
+σ_col = df_datasignals[:,4]
+lcm_col = df_datasignals[:,5]
 
 # # dataprobd_valid = Float32.(Matrix(df_dataprobd[:,1:10:num_datos]))
 # # dataprobd = Float32.(Matrix(df_dataprobd[:,setdiff(1:num_datos, 1:10:num_datos)]))
@@ -74,6 +69,20 @@ dataparams = hcat(σ_col, lcm_col)'
 # dataprobd_valid = Float32.(Matrix(df_dataprobd[1:10:num_datos,1:2])')
 # dataprobd = Float32.(Matrix(df_dataprobd[setdiff(1:num_datos, 1:10:num_datos),1:2])')
 
+
+# Funciones de pre procesamiento para escalar los datos
+
+function MaxMin(data)
+    # Calculate the minimum and maximum values for each dimension
+    min_vals = minimum(data, dims=1)
+    max_vals = maximum(data, dims=1)
+
+    # Scale the data to the range of 0 to 1
+    scaled_data = (data .- min_vals) ./ (max_vals .- min_vals)
+
+    return scaled_data
+
+end
 
 function Standarize(data)
     # Calculate the mean and standard deviation for each dimension
@@ -86,50 +95,40 @@ function Standarize(data)
     return standardized_data
 end
 
-function MaxMin(data)
-    # Calculate the minimum and maximum values for each dimension
-    min_vals = minimum(data, dims=1)
-    max_vals = maximum(data, dims=1)
+#------------------------------------------------------------------------------------------
+# Metricas de validacion de la red neuronal
 
-    # Scale the data to the range of -1 to 1
-    scaled_data = -1 .+ 2 * (data .- min_vals) ./ (max_vals .- min_vals)
-
-    return scaled_data
-
+# Root Mean Squared Error
+function RMSE(predicted, real)
+    return sqrt(sum((predicted .- real).^2) / length(predicted))
 end
 
-# n_datasignals = zeros(size(datasignals))
-# n_datasignals_valid = zeros(size(datasignals_valid))
-# n_dataprobd = zeros(size(dataprobd))
-# n_dataprobd_valid = zeros(size(dataprobd_valid))
+# Mean Absolute Error
+function MAE(predicted, real)
+    return sum(abs.(predicted .- real)) / length(predicted)
+end
 
-# for i in 1:2
-#     n_datasignals[i,:] = MaxMin(datasignals[i,:])
-#     n_datasignals_valid[i,:] = MaxMin(datasignals_valid[i,:])
-#     n_dataprobd[i,:] = MaxMin(dataprobd[i,:])
-#     n_dataprobd_valid[i,:] = MaxMin(dataprobd_valid[i,:])
-# end
+# R2 score
+function R2_score(predicted, real)
+    return 1 - sum((predicted .- real).^2) / sum((real .- mean(real)).^2)
+end
 
-# Plot valid signals and valid probd
+#------------------------------------------------------------------------------------------
+# Normalizamos todos los datos
 
-# scatter(datasignals_valid[1,:], datasignals_valid[2,:], xlabel = "PC1", ylabel= "PC2", tittle = "S(t) validacion")
-# scatter(dataprobd_valid[1,:], dataprobd_valid[2,:], xlabel = "x", ylabel="y", tittle = "P(lc) validacion")
+for i in 1:3
+    datasignals[i, :] = MaxMin(datasignals[i, :])
+    # datasignals_valid[i, :] = MaxMin(datasignals_valid[i, :])
+    dataprobd[i, :] = MaxMin(dataprobd[i, :])
+    # dataprobd_valid[i, :] = MaxMin(dataprobd_valid[i, :])
+end
 
-# standarized_dataprobd = Standarize(dataprobd)
-# standarized_dataprobd_valid = Standarize(dataprobd_valid)
+batch_size = 1101
 
+data = Flux.DataLoader((datasignals |> Flux.gpu, dataprobd |> Flux.gpu), batchsize = batch_size, shuffle = true)
 
-# σ_valid = df_datasignals[1:10:num_datos,3]
-# lcm_valid = df_datasignals[1:10:num_datos,4]
-# σ_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),3]
-# lcm_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),4]
-
-batch_size = 100
-
-data = Flux.DataLoader((datasignals |> Flux.gpu, dataparams |> Flux.gpu), batchsize = batch_size, shuffle = true)
-
-scatter(data.data[1][1,:] |> Flux.cpu, data.data[1][2,:] |> Flux.cpu)
-scatter(data.data[2][1,:] |> Flux.cpu, data.data[2][2,:] |> Flux.cpu)
+Plots.scatter(data.data[1][1,:] |> Flux.cpu, data.data[1][2,:] |> Flux.cpu)
+Plots.scatter(data.data[2][1,:] |> Flux.cpu, data.data[2][2,:] |> Flux.cpu)
 
 # data_valid = Flux.DataLoader((n_datasignals_valid |> Flux.gpu, n_dataprobd_valid |> Flux.gpu), batchsize = batch_size, shuffle = true)
 
@@ -238,21 +237,21 @@ iter = 0
 cb = function()
     global iter
     iter += 1
-    if iter % 1 == 0
+    if iter % length(data) == 0
         println("Iteration $iter || Loss = $(loss_node(data.data[1], data.data[2]))") # || Loss valid = $(loss_node(data_valid.data[1], data_valid.data[2]))")
     end
 end
 
-model, parameters = construct_model(2, 2, 20, 5)
+model, parameters = construct_model(3, 3, 25, 10)
 
-opt = Adam(1e-4)
+opt = Adam(1e-3)
 
-for _ in 1:1
+for _ in 1:50
     Flux.train!(loss_node, Flux.params(parameters, model), data, opt, cb = cb)
 end
 
 predicted = model(data.data[1] |> Flux.gpu) |> Flux.cpu
 #predicted_valid = model(datasignals_valid |> Flux.gpu) |> Flux.cpu
 
-scatter(predicted[1,:], predicted[2,:])
+Plots.scatter(predicted[1,:], predicted[2,:])
 #scatter!(predicted_valid[1,:], predicted_valid[2,:])

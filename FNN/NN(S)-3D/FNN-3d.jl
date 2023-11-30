@@ -19,12 +19,12 @@ using PlotlyJS
 # Parámetros fijos
 
 # Lo que dejamos constante es el número de compartimientos, el rango de tamaños de correlación lc, el tiempo de simulación final y el muestreo de timepos
-N = 2000
+N = 1700
 time_sample_lenght = 100
 
 # Rango de tamaños de compartimientos en μm
-l0 = 0.01
-lf = 15
+l0 = 0.05
+lf = 10
 
 # Tiempo final de simulación en s
 tf = 1
@@ -36,14 +36,15 @@ t = range(0, tf, length = time_sample_lenght)
 # Parametros que se varian
 
 # Rango de tamaños medios de correlación en μm
-lcms = 0.5:0.01:6
+lcms = 0.5:0.005:6
 σs = 0.01:0.01:1
+
 
 #------------------------------------------------------------------------------------------
 
 # Leemos los datos a los que les realizamos PCA
-path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA\\PCA3D"
-df_datasignals = CSV.read(path_read * "\\df_PCA_Signal_100var.csv", DataFrame)
+path_read = "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\Datos\\Datos_PCA\\PCAXL"
+df_datasignals = CSV.read(path_read * "\\df_PCA_Signals.csv", DataFrame)
 #datasignals = Matrix(df_datasignals)
 
 df_dataprobd = CSV.read(path_read * "\\df_PCA_Probd_86var.csv", DataFrame)
@@ -55,21 +56,29 @@ df_dataprobd = CSV.read(path_read * "\\df_PCA_Probd_86var.csv", DataFrame)
 # df_dataprobd[:,2] = -df_dataprobd[:,2]
 
 
-
+# df_datasignals
+# df_dataprobd
 #------------------------------------------------------------------------------------------
 
 num_datos = Int(size(df_datasignals, 1)) # Numero de datos
 
-datasignals_valid = Float32.(Matrix(df_datasignals[1:10:num_datos,1:3])')
-datasignals = Float32.(Matrix(df_datasignals[setdiff(1:num_datos, 1:10:num_datos),1:3])')
+datasignals = Float32.(Matrix(df_datasignals[:,1:3])')
+dataprobd = Float32.(Matrix(df_dataprobd[:,1:3])')
 
-dataprobd_valid = Float32.(Matrix(df_dataprobd[1:10:num_datos,1:2])')
-dataprobd = Float32.(Matrix(df_dataprobd[setdiff(1:num_datos, 1:10:num_datos),1:2])')
 
-σ_valid = df_datasignals[1:10:num_datos,4]
-lcm_valid = df_datasignals[1:10:num_datos,5]
-σ_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),4]
-lcm_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),5]
+σ_col = df_datasignals[:,4]
+lcm_col = df_datasignals[:,5]
+
+# datasignals_valid = Float32.(Matrix(df_datasignals[1:10:num_datos,1:3])')
+# datasignals = Float32.(Matrix(df_datasignals[setdiff(1:num_datos, 1:10:num_datos),1:3])')
+
+# dataprobd_valid = Float32.(Matrix(df_dataprobd[1:10:num_datos,1:3])')
+# dataprobd = Float32.(Matrix(df_dataprobd[setdiff(1:num_datos, 1:10:num_datos),1:3])')
+
+# σ_valid = df_datasignals[1:10:num_datos,4]
+# lcm_valid = df_datasignals[1:10:num_datos,5]
+# σ_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),4]
+# lcm_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),5]
 
 # Quedemonos con los datos de las señales y las distribuciones de probabilidad que tengan σ < 0.5
 
@@ -78,8 +87,8 @@ lcm_col = df_datasignals[setdiff(1:num_datos, 1:10:num_datos),5]
 # dataprobd = dataprobd[:, σ_col .< 0.5]
 # dataprobd_valid = dataprobd_valid[:, σ_valid .< 0.5]
 
-Plots.plot(datasignals[1, :], datasignals[2, :], seriestype = :scatter, label = "Datos de entrenamiento", xlabel = "PC1", ylabel = "PC2")
-Plots.plot(dataprobd[1, :], dataprobd[2, :], seriestype = :scatter, label = "Datos de entrenamiento", xlabel = "PC1", ylabel = "PC2")
+# Plots.plot(datasignals[1, :], datasignals[2, :], seriestype = :scatter, label = "Datos de entrenamiento", xlabel = "PC1", ylabel = "PC2")
+# Plots.plot(dataprobd[1, :], dataprobd[2, :], seriestype = :scatter, label = "Datos de entrenamiento", xlabel = "PC1", ylabel = "PC2")
 
 #datasignals[2, :] = -datasignals[2, :]
 #datasignals_valid[2, :] = -datasignals_valid[2, :]
@@ -87,8 +96,8 @@ Plots.plot(dataprobd[1, :], dataprobd[2, :], seriestype = :scatter, label = "Dat
 # dataprobd_valid[2, :] = -dataprobd_valid[2, :]
 
 
-Plots.plot(datasignals[1, :], datasignals[2, :], seriestype = :scatter, label = "Datos de entrenamiento", xlabel = "PC1", ylabel = "PC2")
-Plots.plot(dataprobd[1, :], dataprobd[2, :], seriestype = :scatter, label = "Datos de entrenamiento", xlabel = "PC1", ylabel = "PC2")
+# Plots.plot(datasignals[1, :], datasignals[2, :], seriestype = :scatter, label = "Datos de entrenamiento", xlabel = "PC1", ylabel = "PC2")
+# Plots.plot(dataprobd[1, :], dataprobd[2, :], seriestype = :scatter, label = "Datos de entrenamiento", xlabel = "PC1", ylabel = "PC2")
 
 
 #------------------------------------------------------------------------------------------
@@ -140,12 +149,15 @@ end
 
 # Normalizamos todos los datos
 
-# for i in 1:3
-#     datasignals[i, :] = MaxMin(datasignals[i, :])
-#     datasignals_valid[i, :] = MaxMin(datasignals_valid[i, :])
-#     dataprobd[i, :] = MaxMin(dataprobd[i, :])
-#     dataprobd_valid[i, :] = MaxMin(dataprobd_valid[i, :])
-# end
+for i in 1:3
+    datasignals[i, :] = MaxMin(datasignals[i, :])
+    # datasignals_valid[i, :] = MaxMin(datasignals_valid[i, :])
+    dataprobd[i, :] = MaxMin(dataprobd[i, :])
+    # dataprobd_valid[i, :] = MaxMin(dataprobd_valid[i, :])
+end
+
+r_signals = sqrt.(datasignals[1,:].^2 .+ datasignals[2,:].^2 .+ datasignals[3,:].^2)
+datasignals_extend = vcat(datasignals, r_signals')
 
 #------------------------------------------------------------------------------------------
 
@@ -177,7 +189,6 @@ plot_lcms_P = @df df_dataprobd StatsPlots.scatter(
     labels = false,
     title = "PCA para P(lc)",
 )
-
 
 df_train_P = DataFrame(
     pc1 = dataprobd[1, :],
@@ -220,39 +231,49 @@ PlotlyJS.plot(
 
 # Definimos la red neuronal
 
-model = Chain(
-    Dense(3, 16, selu),
-    Dense(16, 32, selu),
-    Dense(32, 64, leakyrelu),
-    Dense(64, 128, leakyrelu),
-    Dense(128, 128, leakyrelu),
-    Dense(128, 64, leakyrelu),
-    Dense(64, 32, selu),
-    Dense(32, 16, selu),
-    Dense(16, 8, selu),
-    Dense(8, 2),
-)
+# model = Chain(
+#     Dense(3, 16, selu),
+#     Dense(16, 32, selu),
+#     Dense(32, 64, leakyrelu),
+#     Dense(64, 128, leakyrelu),
+#     Dense(128, 128, leakyrelu),
+#     Dense(128, 64, leakyrelu),
+#     Dense(64, 32, leakyrelu),
+#     Dense(32, 16, selu),
+#     Dense(16, 8, selu),
+#     Dense(8, 3),
+# )
 
 # model = Chain(
-#     Dense(2, 10, relu),
-#     Dense(10, 25, relu),
-#     Dense(25, 50, tanh_fast),
-#     Dense(50, 50, tanh_fast),
-#     Dense(50, 2)
+#     Dense(3, 25),
+#     Dense(25, 40, selu),
+#     Dense(40, 25, selu),
+#     Dense(25, 3),
 # )
+
+model = Chain(
+    Dense(3, 128, relu),
+    Dense(128, 64, relu),
+    Dense(64, 280, relu),
+    Dropout(0.4),
+    Dense(280, 128, relu),
+    Dense(128, 64, relu),
+    Dense(64, 32, relu),
+    Dense(32, 3),
+)
 
 
 # Definimos la función de pérdida
 
 function loss(x,y)
-    return Flux.Losses.mae(model(x), y)
+    return Flux.Losses.mse(model(x), y)
 end
 
 #loss(x, y) = Flux.mse(model(x), y)
 
 # Definimos el optimizador
 
-opt = ADAM(1e-6)
+opt = ADAM(1e-4)
 
 # Definimos el número de épocas
 
@@ -260,12 +281,12 @@ epochs = 500
 
 # Definimos el batch size
 
-batch_size = 100
+batch_size = 1101
 
 # Usamos dataloader para cargar los datos
 
 data = Flux.DataLoader((datasignals, dataprobd), batchsize = batch_size, shuffle = true)
-data_valid = Flux.DataLoader((datasignals_valid, dataprobd_valid), batchsize = batch_size, shuffle = true)
+#data_valid = Flux.DataLoader((datasignals_valid, dataprobd_valid), batchsize = batch_size, shuffle = true)
 
 # Definimos el vector donde guardamos la pérdida
 
@@ -288,12 +309,12 @@ cb = function()
     if iter % length(data) == 0
         epoch_iter += 1
         actual_loss = loss(data.data[1], data.data[2])
-        actual_valid_loss = loss(data_valid.data[1], data_valid.data[2])
+        #actual_valid_loss = loss(data_valid.data[1], data_valid.data[2])
         if epoch_iter % 10 == 0
-            println("Epoch $epoch_iter || Loss = $actual_loss || Valid Loss = $actual_valid_loss")
+            println("Epoch $epoch_iter || Loss = $actual_loss")# || Valid Loss = $actual_valid_loss")
         end
         losses[epoch_iter] = actual_loss
-        losses_valid[epoch_iter] = actual_valid_loss
+        #losses_valid[epoch_iter] = actual_valid_loss
     end
 end;
 
@@ -303,7 +324,6 @@ for epoch in 1:epochs
 end
 
 # Graficamos la pérdida
-
 pl_loss = Plots.plot(1:epochs, losses, xlabel = "Epocas", ylabel = "Loss", label = "Loss datos de entrenamiento", logy = true)
 Plots.plot!(1:epochs, losses_valid, xlabel = "Epocas", ylabel = "Loss", label = "Loss datos de validación", logy = true)
 Plots.yaxis!(pl_loss, (-0.1, 0.6), log = true)
@@ -315,36 +335,36 @@ savefig(pl_loss, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-
 
 # Grafiquemos las predicciones de la red para las señales
 
-predicteddp = model(datasignals)
-predicteddp_valid = model(datasignals_valid)
+predicteddp = model(datasignals_extend)
+# predicteddp_valid = model(datasignals_valid)
 
 #------------------------------------------------------------------------------------------
-R2_score(predicteddp[1, :], dataprobd[1, :])
-R2_score(predicteddp[2, :], dataprobd[2, :])
+R2_score(predicteddp, dataprobd)
+MAE(predicteddp, dataprobd)
+RMSE(predicteddp, dataprobd)
 
-R2_score(predicteddp_valid[1, :], dataprobd_valid[1, :])
-R2_score(predicteddp_valid[2, :], dataprobd_valid[2, :])
+println("R2 score: ", R2_score(predicteddp, dataprobd), " MAE: ", MAE(predicteddp, dataprobd), " RMSE: ", RMSE(predicteddp, dataprobd))
 
 df_predict = DataFrame(
     pc1 = predicteddp[1, :],
     pc2 = predicteddp[2, :],
-    pc3 = df_dataprobd[setdiff(1:num_datos, 1:10:num_datos),"pc3"],
+    pc3 = predicteddp[3, :],
     σs = σ_col,
     lcm = lcm_col,
 )
 
-PlotlyJS.plot(
-    df_predict, Layout(margin=attr(l=0, r=0, b=0, t=0)),
-    x=:pc1, y=:pc2, z=:pc3, color=:σs,
-    type="scatter3d", mode="markers", hoverinfo="text", hovertext=:lcm, title = "PCA para P(lc)",
-)
+# PlotlyJS.plot(
+#     df_predict, Layout(margin=attr(l=0, r=0, b=0, t=0)),
+#     x=:pc1, y=:pc2, z=:pc3, color=:σs,
+#     type="scatter3d", mode="markers", hoverinfo="text", hovertext=:lcm, title = "PCA para P(lc)",
+# )
 
-df_predict_valid = DataFrame(
-    pc1 = predicteddp_valid[1, :],
-    pc2 = predicteddp_valid[2, :],
-    σs = σ_valid,
-    lcm = lcm_valid,
-)
+# df_predict_valid = DataFrame(
+#     pc1 = predicteddp_valid[1, :],
+#     pc2 = predicteddp_valid[2, :],
+#     σs = σ_valid,
+#     lcm = lcm_valid,
+# )
 
 plot_lcms_P = @df df_train_P StatsPlots.scatter(
     :pc1,
@@ -359,8 +379,9 @@ plot_lcms_P = @df df_train_P StatsPlots.scatter(
     title = "PCA para P(lc)",
 )
 
+Plots.savefig(plot_lcms_P, "C:\\Users\\Propietario\\Desktop\\ib\\5-Maestría\\GenData-PCA-UMAP\\FNN\\NN(S)-3D\\Plots\\Train.png")
 
-plot_lcms_P_pred = @df df_predict StatsPlots.scatter!(
+plot_lcms_P_pred = @df df_predict StatsPlots.scatter(
     :pc1,
     :pc2,
     group = :σs,

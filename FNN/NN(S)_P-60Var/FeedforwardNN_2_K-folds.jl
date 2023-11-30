@@ -105,7 +105,7 @@ pen_l1(x::AbstractArray) = Float32.(sum(abs, x) / 2)
 # Definimos el número de folds
 folds = 5
 step_valid = 10
-num_datos = Int(size(df_datasignals, 1)) - Int(size(df_datasignals, 1) / 100 * 5) # Numero de datos Entrenamiento + Validacion (95%)
+num_datos = Int(size(df_datasignals, 1)) - Int(size(df_datasignals, 1) * 0.05) # Numero de datos Entrenamiento + Validacion (95%)
 
 # Contador de folds
 fold = 0
